@@ -25,6 +25,10 @@ spec:
           path: cap.type.database.postgresql.config
           revision: 0.1.0
         verbs: [ "get" ]
+    parameters:
+      typeRef:
+        path: cap.type.atlassian.confluence.helm.install-input
+        revision: 0.1.0
 
   outputTypeInstanceRelations:
       confluence-config:
@@ -82,6 +86,8 @@ spec:
             inputs:
               artifacts:
                 - name: input-parameters
+                - name: additional-parameters
+                  optional: true
                 - name: postgresql
                   optional: true
             steps:
@@ -203,6 +209,21 @@ spec:
                       - name: manifest
                         from: "{{steps.create-license-args.outputs.artifacts.render}}"
 
+              - - name: fill-default-input
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.input-parameters}}"
+                      - name: template
+                        raw:
+                          data: |
+                            host: <@ input.host @>
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
               # Here we prepare the input for the Helm runner. In the next two steps,
               # we use Jinja2 to render the input and fill the required parameters.
               # In the future there might be better way to do this.
@@ -222,62 +243,62 @@ spec:
                                 version: "{{ .Values.image.tag }}"
                                 host: "{{ .Values.ingress.host }}"
                             values:
-                              replicaCount: <@ input.replicaCount | default(1) @>
+                              replicaCount: <@ additionalInput.replicaCount | default(1) @>
                               image:
-                                repository: <@ input.image.repository | default("atlassian/confluence-server") @>
-                                pullPolicy: <@ input.image.pullPolicy | default("IfNotPresent") @>
-                                tag: <@ input.image.tag | default("7.12.0") @>
+                                repository: <@ additionalInput.image.repository | default("atlassian/confluence-server") @>
+                                pullPolicy: <@ additionalInput.image.pullPolicy | default("IfNotPresent") @>
+                                tag: <@ additionalInput.image.tag | default("7.12.0") @>
                               serviceAccount:
-                                name: <@ input.serviceAccount.name | default("") @>
-                                create: <@ input.serviceAccount.create | default(true) @>
-                                imagePullSecrets: <@ input.serviceAccount.imagePullSecrets | default([]) @>
+                                name: <@ additionalInput.serviceAccount.name | default("") @>
+                                create: <@ additionalInput.serviceAccount.create | default(true) @>
+                                imagePullSecrets: <@ additionalInput.serviceAccount.imagePullSecrets | default([]) @>
                                 clusterRole:
-                                  name: <@ input.serviceAccount.clusterRole.name | default("") @>
-                                  create: <@ input.serviceAccount.clusterRole.create | default(true) @>
+                                  name: <@ additionalInput.serviceAccount.clusterRole.name | default("") @>
+                                  create: <@ additionalInput.serviceAccount.clusterRole.create | default(true) @>
                                 clusterRoleBinding:
-                                  name: <@ input.serviceAccount.clusterRoleBinding.name | default("") @>
-                                  create: <@ input.serviceAccount.clusterRoleBinding.create | default(true) @>
+                                  name: <@ additionalInput.serviceAccount.clusterRoleBinding.name | default("") @>
+                                  create: <@ additionalInput.serviceAccount.clusterRoleBinding.create | default(true) @>
                               database:
                                 type: postgresql
                                 url: jdbc:postgresql://<@ db.host @>:<@ db.port @>/<@ database.name @>
-                                driver: <@ input.database.driver | default("org.postgresql.Driver") @>
+                                driver: <@ additionalInput.database.driver | default("org.postgresql.Driver") @>
                                 credentials:
                                   secretName: <@ secret.metadata.name @>
                                   usernameSecretKey: username
                                   passwordSecretKey: password
                               confluence:
                                 service:
-                                  port: <@ input.confluence.service.port | default(80) @>
-                                  type: <@ input.confluence.service.type | default("ClusterIP") @>
-                                  contextPath: <@ input.confluence.service.contextPath | default("") @>
+                                  port: <@ additionalInput.confluence.service.port | default(80) @>
+                                  type: <@ additionalInput.confluence.service.type | default("ClusterIP") @>
+                                  contextPath: <@ additionalInput.confluence.service.contextPath | default("") @>
                                 securityContext:
-                                  enabled: <@ input.confluence.securityContext.enabled | default(true) @>
-                                  gid: <@ input.confluence.securityContext.gid | default("2002") @>
-                                umask: <@ input.confluence.umask | default("0022") @>
+                                  enabled: <@ additionalInput.confluence.securityContext.enabled | default(true) @>
+                                  gid: <@ additionalInput.confluence.securityContext.gid | default("2002") @>
+                                umask: <@ additionalInput.confluence.umask | default("0022") @>
                                 ports:
-                                  http: <@ input.confluence.ports.http | default(8090) @>
-                                  hazelcast: <@ input.confluence.ports.hazelcast | default(5701) @>
+                                  http: <@ additionalInput.confluence.ports.http | default(8090) @>
+                                  hazelcast: <@ additionalInput.confluence.ports.hazelcast | default(5701) @>
                                 license:
                                   secretName: <@ optionalLicense.metadata.name @>
                                   secretKey: license-key
                                 readinessProbe:
-                                  initialDelaySeconds: <@ input.confluence.readinessProbe.initialDelaySeconds | default(10) @>
-                                  periodSeconds: <@ input.confluence.readinessProbe.periodSeconds | default(10) @>
-                                  failureThreshold: <@ input.confluence.readinessProbe.failureThreshold | default(30) @>
+                                  initialDelaySeconds: <@ additionalInput.confluence.readinessProbe.initialDelaySeconds | default(10) @>
+                                  periodSeconds: <@ additionalInput.confluence.readinessProbe.periodSeconds | default(10) @>
+                                  failureThreshold: <@ additionalInput.confluence.readinessProbe.failureThreshold | default(30) @>
                                 accessLog:
-                                  enabled: <@ input.confluence.accessLog.enabled | default(true) @>
-                                  mountPath: <@ input.confluence.accessLog.mountPath | default("/opt/atlassian/confluence/logs") @>
-                                  localHomeSubPath: <@ input.confluence.accessLog.localHomeSubPath | default("logs") @>
+                                  enabled: <@ additionalInput.confluence.accessLog.enabled | default(true) @>
+                                  mountPath: <@ additionalInput.confluence.accessLog.mountPath | default("/opt/atlassian/confluence/logs") @>
+                                  localHomeSubPath: <@ additionalInput.confluence.accessLog.localHomeSubPath | default("logs") @>
                                 clustering:
-                                  enabled: <@ input.confluence.clustering.enabled | default(true) @>
-                                  usePodNameAsClusterNodeName: <@ input.confluence.clustering.usePodNameAsClusterNodeName | default(true) @>
+                                  enabled: <@ additionalInput.confluence.clustering.enabled | default(true) @>
+                                  usePodNameAsClusterNodeName: <@ additionalInput.confluence.clustering.usePodNameAsClusterNodeName | default(true) @>
                                 resources:
                                   jvm:
-                                    maxHeap: <@ input.confluence.resources.jvm.maxHeap | default("1g") @>
-                                    minHeap: <@ input.confluence.resources.jvm.minHeap | default("1g") @>
-                                    reservedCodeCache: <@ input.confluence.resources.jvm.reservedCodeCache | default("512m") @>
-                                  <% if input.confluence.resources.container %>
-                                  container: <@ input.confluence.resources.container @>
+                                    maxHeap: <@ additionalInput.confluence.resources.jvm.maxHeap | default("1g") @>
+                                    minHeap: <@ additionalInput.confluence.resources.jvm.minHeap | default("1g") @>
+                                    reservedCodeCache: <@ additionalInput.confluence.resources.jvm.reservedCodeCache | default("512m") @>
+                                  <% if additionalInput.confluence.resources.container %>
+                                  container: <@ additionalInput.confluence.resources.container @>
                                   <% else %>
                                   container:
                                     limits:
@@ -287,75 +308,88 @@ spec:
                                       cpu: "1"
                                       memory: "2G"
                                   <% endif %>
-                                additionalJvmArgs: <@ input.confluence.additionalJvmArgs | default([]) @>
-                                additionalLibraries: <@ input.confluence.additionalLibraries | default([]) @>
-                                additionalBundledPlugins: <@ input.confluence.additionalBundledPlugins | default([]) @>
-                                additionalVolumeMounts: <@ input.confluence.additionalVolumeMounts | default([]) @>
-                                additionalEnvironmentVariables: <@ input.confluence.additionalEnvironmentVariables | default([{"name": "ATL_TOMCAT_MAXTHREADS", "value": "48"}]) @>
+                                additionalJvmArgs: <@ additionalInput.confluence.additionalJvmArgs | default([]) @>
+                                additionalLibraries: <@ additionalInput.confluence.additionalLibraries | default([]) @>
+                                additionalBundledPlugins: <@ additionalInput.confluence.additionalBundledPlugins | default([]) @>
+                                additionalVolumeMounts: <@ additionalInput.confluence.additionalVolumeMounts | default([]) @>
+                                additionalEnvironmentVariables: <@ additionalInput.confluence.additionalEnvironmentVariables | default([{"name": "ATL_TOMCAT_MAXTHREADS", "value": "48"}]) @>
                               synchrony:
                                 enabled: false
                               ingress:
-                                create: <@ input.ingress.create | default(true) @>
-                                nginx: <@ input.ingress.nginx | default(true) @>
-                                host: <@ input.ingress.host @>
+                                create: <@ additionalInput.ingress.create | default(true) @>
+                                nginx: <@ additionalInput.ingress.nginx | default(true) @>
+                                host: <@ input.host @>
                                 annotations:
                                   nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
                                   cert-manager.io/cluster-issuer: letsencrypt
-                                https: <@ input.ingress.https | default(true) @>
+                                https: <@ additionalInput.ingress.https | default(true) @>
                                 tlsSecretName: confluence-server-tls-<@ random_word(length=5) @>
                               fluentd:
-                                enabled: <@ input.fluentd.enabled | default(false) @>
-                                imageName: <@ input.fluentd.imageName | default("fluent/fluentd-kubernetes-daemonset:v1.11.5-debian-elasticsearch7-1.2") @>
-                                httpPort: <@ input.fluentd.httpPort | default(9880) @>
+                                enabled: <@ additionalInput.fluentd.enabled | default(false) @>
+                                imageName: <@ additionalInput.fluentd.imageName | default("fluent/fluentd-kubernetes-daemonset:v1.11.5-debian-elasticsearch7-1.2") @>
+                                httpPort: <@ additionalInput.fluentd.httpPort | default(9880) @>
                                 elasticsearch:
-                                  enabled: <@ input.fluentd.elasticsearch.enabled | default(true) @>
-                                  hostname: <@ input.fluentd.elasticsearch.hostname | default("elasticsearch") @>
-                                  indexNamePrefix: <@ input.fluentd.elasticsearch.indexNamePrefix | default("confluence") @>
-                              podAnnotations: <@ input.podAnnotations | default({}) @>
+                                  enabled: <@ additionalInput.fluentd.elasticsearch.enabled | default(true) @>
+                                  hostname: <@ additionalInput.fluentd.elasticsearch.hostname | default("elasticsearch") @>
+                                  indexNamePrefix: <@ additionalInput.fluentd.elasticsearch.indexNamePrefix | default("confluence") @>
+                              podAnnotations: <@ additionalInput.podAnnotations | default({}) @>
                               volumes:
                                 localHome:
                                   persistentVolumeClaim:
-                                    create: <@ input.volumes.localHome.persistentVolumeClaim.create | default(true) @>
-                                    storageClassName: <@ input.volumes.localHome.persistentVolumeClaim.storageClassName | default("") @>
+                                    create: <@ additionalInput.volumes.localHome.persistentVolumeClaim.create | default(true) @>
+                                    storageClassName: <@ additionalInput.volumes.localHome.persistentVolumeClaim.storageClassName | default("") @>
                                     resources:
                                       requests:
-                                        storage: <@ input.volumes.localHome.persistentVolumeClaim.resources.requests.storage | default("1Gi") @>
-                                  customVolume: <@ input.volumes.localHome.customVolume | default({}) @>
-                                  mountPath: <@ input.volumes.localHome.mountPath | default("/var/atlassian/application-data/confluence") @>
+                                        storage: <@ additionalInput.volumes.localHome.persistentVolumeClaim.resources.requests.storage | default("1Gi") @>
+                                  customVolume: <@ additionalInput.volumes.localHome.customVolume | default({}) @>
+                                  mountPath: <@ additionalInput.volumes.localHome.mountPath | default("/var/atlassian/application-data/confluence") @>
                                 sharedHome:
                                   persistentVolumeClaim:
-                                    create: <@ input.volumes.sharedHome.persistentVolumeClaim.create | default(true) @>
-                                    storageClassName: <@ input.volumes.sharedHome.persistentVolumeClaim.storageClassName | default("") @>
+                                    create: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.create | default(true) @>
+                                    storageClassName: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.storageClassName | default("") @>
                                     resources:
                                       requests:
-                                        storage: <@ input.volumes.sharedHome.persistentVolumeClaim.resources.requests.storage | default("1Gi") @>
-                                  customVolume: <@ input.volumes.sharedHome.customVolume | default({}) @>
-                                  mountPath: <@ input.volumes.sharedHome.mountPath | default("/var/atlassian/application-data/shared-home") @>
-                                  subPath: <@ input.volumes.sharedHome.subPath | default("") @>
+                                        storage: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.resources.requests.storage | default("1Gi") @>
+                                  customVolume: <@ additionalInput.volumes.sharedHome.customVolume | default({}) @>
+                                  mountPath: <@ additionalInput.volumes.sharedHome.mountPath | default("/var/atlassian/application-data/shared-home") @>
+                                  subPath: <@ additionalInput.volumes.sharedHome.subPath | default("") @>
                                   nfsPermissionFixer:
-                                    enabled: <@ input.volumes.sharedHome.nfsPermissionFixer.enabled | default(false) @>
-                                    mountPath: <@ input.volumes.sharedHome.nfsPermissionFixer.mountPath | default("/shared-home") @>
-                                    command: <@ input.volumes.sharedHome.nfsPermissionFixer.command | default("") @>
-                                additional: <@ input.volumes.additional | default([]) @>
-                              nodeSelector: <@ input.nodeSelector | default({}) @>
-                              tolerations: <@ input.tolerations | default([]) @>
-                              affinity: <@ input.affinity | default({}) @>
-                              additionalContainers: <@ input.additionalContainers | default([]) @>
-                              additionalInitContainers: <@ input.additionalInitContainers | default([]) @>
-                              additionalLabels: <@ input.additionalLabels | default({}) @>
-                              additionalFiles: <@ input.additionalFiles | default([]) @>
+                                    enabled: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.enabled | default(false) @>
+                                    mountPath: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.mountPath | default("/shared-home") @>
+                                    command: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.command | default("") @>
+                                additional: <@ additionalInput.volumes.additional | default([]) @>
+                              nodeSelector: <@ additionalInput.nodeSelector | default({}) @>
+                              tolerations: <@ additionalInput.tolerations | default([]) @>
+                              affinity: <@ additionalInput.affinity | default({}) @>
+                              additionalContainers: <@ additionalInput.additionalContainers | default([]) @>
+                              additionalInitContainers: <@ additionalInput.additionalInitContainers | default([]) @>
+                              additionalLabels: <@ additionalInput.additionalLabels | default({}) @>
+                              additionalFiles: <@ additionalInput.additionalFiles | default([]) @>
                       - name: input-parameters
-                        from: "{{inputs.artifacts.input-parameters}}"
+                        from: "{{inputs.artifacts.additional-parameters}}"
                       - name: configuration
                         raw:
-                          data: "prefix: input"
+                          data: "prefix: additionalInput"
+
+              - - name: fill-input-in-module-args
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.render-helm-args.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{steps.fill-default-input.outputs.artifacts.render}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
 
               - - name: fill-database-params-in-helm-args
                   capact-action: jinja2.template
                   arguments:
                     artifacts:
                       - name: template
-                        from: "{{steps.render-helm-args.outputs.artifacts.render}}"
+                        from: "{{steps.fill-input-in-module-args.outputs.artifacts.render}}"
                       - name: input-parameters
                         from: "{{steps.create-db.outputs.artifacts.database}}"
                       - name: configuration
@@ -445,4 +479,4 @@ spec:
                 sleep 1
 
 signature:
-  och: eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9
+  hub: eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9

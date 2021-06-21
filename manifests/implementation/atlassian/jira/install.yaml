@@ -25,6 +25,10 @@ spec:
           path: cap.type.database.postgresql.config
           revision: 0.1.0
         verbs: [ "get" ]
+    parameters:
+      typeRef:
+        path: cap.type.atlassian.jira.helm.install-input
+        revision: 0.1.0
 
   outputTypeInstanceRelations:
     jira-config:
@@ -80,6 +84,8 @@ spec:
             inputs:
               artifacts:
                 - name: input-parameters
+                - name: additional-parameters
+                  optional: true
                 - name: postgresql
                   optional: true
             steps:
@@ -196,6 +202,21 @@ spec:
                       - name: manifest
                         from: "{{steps.create-license-args.outputs.artifacts.render}}"
 
+              - - name: fill-default-input
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.input-parameters}}"
+                      - name: template
+                        raw:
+                          data: |
+                            host: <@ input.host @>
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
               - - name: fill-input-params-in-helm-args
                   capact-action: jinja2.template
                   arguments:
@@ -212,52 +233,52 @@ spec:
                                 version: "{{ .Values.image.tag }}"
                                 host: "{{ .Values.ingress.host }}"
                             values:
-                              replicaCount: <@ input.replicaCount | default(1) @>
+                              replicaCount: <@ additionalInput.replicaCount | default(1) @>
                               image:
-                                repository: <@ input.image.repository | default("atlassian/jira-software") @>
-                                pullPolicy: <@ input.image.pullPolicy | default("IfNotPresent") @>
-                                tag: <@ input.image.tag | default("8.16.1") @>
+                                repository: <@ additionalInput.image.repository | default("atlassian/jira-software") @>
+                                pullPolicy: <@ additionalInput.image.pullPolicy | default("IfNotPresent") @>
+                                tag: <@ additionalInput.image.tag | default("8.16.1") @>
                               serviceAccount:
-                                name: <@ input.serviceAccount.name | default("") @>
-                                create: <@ input.serviceAccount.create | default(True) @>
-                                imagePullSecrets: <@ input.serviceAccount.imagePullSecrets | default([]) @>
+                                name: <@ additionalInput.serviceAccount.name | default("") @>
+                                create: <@ additionalInput.serviceAccount.create | default(True) @>
+                                imagePullSecrets: <@ additionalInput.serviceAccount.imagePullSecrets | default([]) @>
                               database:
                                 type: postgres72
                                 url: jdbc:postgresql://<@ db.host @>:<@ db.port @>/<@ database.name @>
-                                driver: <@ input.database.driver | default("org.postgresql.Driver") @>
+                                driver: <@ additionalInput.database.driver | default("org.postgresql.Driver") @>
                                 credentials:
                                   secretName: <@ secret.metadata.name @>
                                   usernameSecretKey: username
                                   passwordSecretKey: password
                               jira:
                                 service:
-                                  port: <@ input.jira.service.port | default(80) @>
-                                  type: <@ input.jira.service.type | default("ClusterIP") @>
-                                  contextPath: <@ input.jira.service.contextPath | default("") @>
+                                  port: <@ additionalInput.jira.service.port | default(80) @>
+                                  type: <@ additionalInput.jira.service.type | default("ClusterIP") @>
+                                  contextPath: <@ additionalInput.jira.service.contextPath | default("") @>
                                 securityContext:
-                                  enabled: <@ input.jira.securityContext.enabled | default(True) @>
-                                  gid: <@ input.jira.securityContext.gid | default("2001") @>
+                                  enabled: <@ additionalInput.jira.securityContext.enabled | default(True) @>
+                                  gid: <@ additionalInput.jira.securityContext.gid | default("2001") @>
                                 ports:
-                                  http: <@ input.jira.ports.http | default(8080) @>
+                                  http: <@ additionalInput.jira.ports.http | default(8080) @>
                                 readinessProbe:
-                                  initialDelaySeconds: <@ input.jira.readinessProbe.initialDelaySeconds | default(10) @>
-                                  periodSeconds: <@ input.jira.readinessProbe.periodSeconds | default(5) @>
-                                  failureThreshold: <@ input.jira.readinessProbe.failureThreshold | default(30) @>
+                                  initialDelaySeconds: <@ additionalInput.jira.readinessProbe.initialDelaySeconds | default(10) @>
+                                  periodSeconds: <@ additionalInput.jira.readinessProbe.periodSeconds | default(5) @>
+                                  failureThreshold: <@ additionalInput.jira.readinessProbe.failureThreshold | default(30) @>
                                 accessLog:
-                                  mountPath: <@ input.jira.accessLog.mountPath | default("/opt/atlassian/jira/logs") @>
-                                  localHomeSubPath: <@ input.jira.accessLog.localHomeSubPath | default("log") @>
+                                  mountPath: <@ additionalInput.jira.accessLog.mountPath | default("/opt/atlassian/jira/logs") @>
+                                  localHomeSubPath: <@ additionalInput.jira.accessLog.localHomeSubPath | default("log") @>
                                 clustering:
-                                  enabled: <@ input.jira.clustering.enabled | default(True) @>
+                                  enabled: <@ additionalInput.jira.clustering.enabled | default(True) @>
                                 license:
                                   secretName: <@ optionalLicense.metadata.name @>
                                   secretKey: license-key
                                 resources:
                                   jvm:
-                                    maxHeap: <@ input.jira.resources.jvm.maxHeap | default("1g") @>
-                                    minHeap: <@ input.jira.resources.jvm.minHeap | default("1g") @>
-                                    reservedCodeCache: <@ input.jira.resources.jvm.reservedCodeCache | default("512m") @>
-                                  <% if input.jira.resources.container %>
-                                  container: <@ input.jira.resources.container @>
+                                    maxHeap: <@ additionalInput.jira.resources.jvm.maxHeap | default("1g") @>
+                                    minHeap: <@ additionalInput.jira.resources.jvm.minHeap | default("1g") @>
+                                    reservedCodeCache: <@ additionalInput.jira.resources.jvm.reservedCodeCache | default("512m") @>
+                                  <% if additionalInput.jira.resources.container %>
+                                  container: <@ additionalInput.jira.resources.container @>
                                   <% else %>
                                   container:
                                     limits:
@@ -265,67 +286,80 @@ spec:
                                       memory: "8G"
                                     requests:
                                       cpu: "1"
-                                      memory: "2G"
+                                      memory: "3G"
                                   <% endif %>
-                                additionalJvmArgs: <@ input.jira.additionalJvmArgs | default([]) @>
-                                additionalLibraries: <@ input.jira.additionalLibraries | default([]) @>
-                                additionalBundledPlugins: <@ input.jira.additionalBundledPlugins | default([]) @>
-                                additionalVolumeMounts: <@ input.jira.additionalVolumeMounts | default([]) @>
-                                additionalEnvironmentVariables: <@ input.jira.additionalEnvironmentVariables | default([]) @>
+                                additionalJvmArgs: <@ additionalInput.jira.additionalJvmArgs | default([]) @>
+                                additionalLibraries: <@ additionalInput.jira.additionalLibraries | default([]) @>
+                                additionalBundledPlugins: <@ additionalInput.jira.additionalBundledPlugins | default([]) @>
+                                additionalVolumeMounts: <@ additionalInput.jira.additionalVolumeMounts | default([]) @>
+                                additionalEnvironmentVariables: <@ additionalInput.jira.additionalEnvironmentVariables | default([]) @>
                               ingress:
-                                create: <@ input.ingress.create | default(True) @>
-                                nginx: <@ input.ingress.nginx | default(True) @>
-                                host: <@ input.ingress.host @>
+                                create: <@ additionalInput.ingress.create | default(True) @>
+                                nginx: <@ additionalInput.ingress.nginx | default(True) @>
+                                host: <@ input.host @>
                                 annotations:
                                   cert-manager.io/cluster-issuer: "letsencrypt"
                                   kubernetes.io/tls-acme: "true"
                                   nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-                                https: <@ input.ingress.https | default(True) @>
-                                tlsSecretName: <@ input.ingress.tlsSecretName | default("jira-server-tls-" + random_word(length=5)) @>
+                                https: <@ additionalInput.ingress.https | default(True) @>
+                                tlsSecretName: <@ additionalInput.ingress.tlsSecretName | default("jira-server-tls-" + random_word(length=5)) @>
                               fluentd:
-                                enabled: <@ input.fluentd.enabled | default(False) @>
-                                imageName: <@ input.fluentd.imageName | default("fluent/fluentd-kubernetes-daemonset:v1.11.5-debian-elasticsearch7-1.2") @>
-                                httpPort: <@ input.fluentd.httpPort | default(9880) @>
+                                enabled: <@ additionalInput.fluentd.enabled | default(False) @>
+                                imageName: <@ additionalInput.fluentd.imageName | default("fluent/fluentd-kubernetes-daemonset:v1.11.5-debian-elasticsearch7-1.2") @>
+                                httpPort: <@ additionalInput.fluentd.httpPort | default(9880) @>
                                 elasticsearch:
-                                  enabled: <@ input.fluentd.elasticsearch.enabled | default(False) @>
-                                  hostname: <@ input.fluentd.elasticsearch.hostname | default("elasticsearch") @>
-                                  indexNamePrefix: <@ input.fluentd.elasticsearch.indexNamePrefix | default("jira") @>
-                              podAnnotations: <@ input.podAnnotations | default({}) @>
+                                  enabled: <@ additionalInput.fluentd.elasticsearch.enabled | default(False) @>
+                                  hostname: <@ additionalInput.fluentd.elasticsearch.hostname | default("elasticsearch") @>
+                                  indexNamePrefix: <@ additionalInput.fluentd.elasticsearch.indexNamePrefix | default("jira") @>
+                              podAnnotations: <@ additionalInput.podAnnotations | default({}) @>
                               volumes:
                                 localHome:
                                   persistentVolumeClaim:
-                                    create: <@ input.volumes.localHome.persistentVolumeClaim.create | default(True) @>
-                                    storageClassName: <@ input.volumes.localHome.persistentVolumeClaim.storageClassName | default("") @>
+                                    create: <@ additionalInput.volumes.localHome.persistentVolumeClaim.create | default(True) @>
+                                    storageClassName: <@ additionalInput.volumes.localHome.persistentVolumeClaim.storageClassName | default("") @>
                                     resources:
                                       requests:
-                                        storage: <@ input.volumes.localHome.persistentVolumeClaim.resources.requests.storage | default("1Gi") @>
-                                  customVolume: <@ input.volumes.localHome.customVolume | default({}) @>
-                                  mountPath: <@ input.volumes.localHome.mountPath | default("/var/atlassian/application-data/jira") @>
+                                        storage: <@ additionalInput.volumes.localHome.persistentVolumeClaim.resources.requests.storage | default("1Gi") @>
+                                  customVolume: <@ additionalInput.volumes.localHome.customVolume | default({}) @>
+                                  mountPath: <@ additionalInput.volumes.localHome.mountPath | default("/var/atlassian/application-data/jira") @>
                                 sharedHome:
                                   persistentVolumeClaim:
-                                    create: <@ input.volumes.sharedHome.persistentVolumeClaim.create | default(True) @>
-                                    storageClassName: <@ input.volumes.sharedHome.persistentVolumeClaim.storageClassName | default("nfs") @>
+                                    create: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.create | default(True) @>
+                                    storageClassName: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.storageClassName | default("nfs") @>
                                     resources:
                                       requests:
-                                        storage: <@ input.volumes.sharedHome.persistentVolumeClaim.resources.requests.storage | default("1Gi") @>
-                                  customVolume: <@ input.volumes.sharedHome.customVolume | default({}) @>
-                                  mountPath: <@ input.volumes.sharedHome.mountPath | default("/var/atlassian/application-data/shared-home") @>
-                                  subPath: <@ input.volumes.sharedHome.subPath | default("") @>
+                                        storage: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.resources.requests.storage | default("1Gi") @>
+                                  customVolume: <@ additionalInput.volumes.sharedHome.customVolume | default({}) @>
+                                  mountPath: <@ additionalInput.volumes.sharedHome.mountPath | default("/var/atlassian/application-data/shared-home") @>
+                                  subPath: <@ additionalInput.volumes.sharedHome.subPath | default("") @>
                                   nfsPermissionFixer:
-                                    enabled: <@ input.volumes.sharedHome.nfsPermissionFixer.enabled | default(False) @>
-                                    mountPath: <@ input.volumes.sharedHome.nfsPermissionFixer.mountPath | default("/shared-home") @>
-                                    command: <@ input.volumes.sharedHome.nfsPermissionFixer.command | default("") @>
-                                additional: <@ input.volumes.additional | default([]) @>
-                              nodeSelector: <@ input.nodeSelector | default({}) @>
-                              tolerations: <@ input.tolerations | default([]) @>
-                              affinity: <@ input.affinity | default({}) @>
-                              additionalContainers: <@ input.additionalContainers | default([]) @>
-                              additionalInitContainers: <@ input.additionalInitContainers | default([]) @>
-                              additionalLabels: <@ input.additionalLabels | default({}) @>
-                              additionalFiles: <@ input.additionalFiles | default([]) @>
+                                    enabled: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.enabled | default(False) @>
+                                    mountPath: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.mountPath | default("/shared-home") @>
+                                    command: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.command | default("") @>
+                                additional: <@ additionalInput.volumes.additional | default([]) @>
+                              nodeSelector: <@ additionalInput.nodeSelector | default({}) @>
+                              tolerations: <@ additionalInput.tolerations | default([]) @>
+                              affinity: <@ additionalInput.affinity | default({}) @>
+                              additionalContainers: <@ additionalInput.additionalContainers | default([]) @>
+                              additionalInitContainers: <@ additionalInput.additionalInitContainers | default([]) @>
+                              additionalLabels: <@ additionalInput.additionalLabels | default({}) @>
+                              additionalFiles: <@ additionalInput.additionalFiles | default([]) @>
 
                       - name: input-parameters
-                        from: "{{inputs.artifacts.input-parameters}}"
+                        from: "{{inputs.artifacts.additional-parameters}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+              - - name: fill-input-in-module-args
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.fill-input-params-in-helm-args.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{steps.fill-default-input.outputs.artifacts.render}}"
                       - name: configuration
                         raw:
                           data: |
@@ -336,7 +370,7 @@ spec:
                   arguments:
                     artifacts:
                       - name: template
-                        from: "{{steps.fill-input-params-in-helm-args.outputs.artifacts.render}}"
+                        from: "{{steps.fill-input-in-module-args.outputs.artifacts.render}}"
                       - name: input-parameters
                         from: "{{steps.create-db.outputs.artifacts.database}}"
                       - name: configuration
@@ -423,4 +457,4 @@ spec:
                 sleep 1
 
 signature:
-  och: eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9
+  hub: eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9

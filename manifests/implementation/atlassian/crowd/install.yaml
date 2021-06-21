@@ -25,6 +25,10 @@ spec:
           path: cap.type.database.postgresql.config
           revision: 0.1.0
         verbs: [ "get" ]
+    parameters:
+      typeRef:
+        path: cap.type.atlassian.crowd.helm
+        revision: 0.1.0
 
   outputTypeInstanceRelations:
     crowd-config:
@@ -80,6 +84,8 @@ spec:
             inputs:
               artifacts:
                 - name: input-parameters
+                - name: additional-parameters
+                  optional: true
                 - name: postgresql
                   optional: true
             steps:
@@ -139,6 +145,21 @@ spec:
                       - name: database-input
                         from: "{{steps.render-create-db-args.outputs.artifacts.render}}"
 
+              - - name: fill-default-input
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.input-parameters}}"
+                      - name: template
+                        raw:
+                          data: |
+                            host: <@ input.host @>
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
               - - name: render-helm-args
                   capact-action: jinja2.template
                   arguments:
@@ -164,7 +185,7 @@ spec:
                                 password: <@ user.password @>
                                 database: <@ db.name @>
                               ingress:
-                                enabled: <@ input.ingress.enabled | default(true | tojson) @>
+                                enabled: <@ additionalInput.ingress.enabled | default(true | tojson) @>
                                 annotations:
                                   acmechallengetype: http01
                                   cert-manager.io/cluster-issuer: letsencrypt
@@ -177,83 +198,83 @@ spec:
                                 tls:
                                   - secretName: crowd-server-tls-<@ random_word(length=5) @>
                                     hosts:
-                                      - <@ input.ingress.host @>
+                                      - <@ input.host @>
                                 hosts:
-                                - host: <@ input.ingress.host @>
+                                - host: <@ input.host @>
                                   paths: ['/']
 
                               image:
-                                repository: <@ input.image.repository | default("atlassian/crowd") @>
-                                tag: <@ input.image.tag | default("4.3.0") @>
-                                pullPolicy: <@ input.image.pullPolicy | default("IfNotPresent") @>
-                                pullSecrets: <@ input.image.pullSecrets | default({}) @>
+                                repository: <@ additionalInput.image.repository | default("atlassian/crowd") @>
+                                tag: <@ additionalInput.image.tag | default("4.3.0") @>
+                                pullPolicy: <@ additionalInput.image.pullPolicy | default("IfNotPresent") @>
+                                pullSecrets: <@ additionalInput.image.pullSecrets | default({}) @>
 
                               ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
                               serviceAccount:
-                                create: <@ input.serviceAccount.create | default(true | tojson) @> # modified
-                                annotations: <@ input.serviceAccount.annotations | default({}) @>
-                                name: <@ input.serviceAccount.name | default("") @>
+                                create: <@ additionalInput.serviceAccount.create | default(true | tojson) @> # modified
+                                annotations: <@ additionalInput.serviceAccount.annotations | default({}) @>
+                                name: <@ additionalInput.serviceAccount.name | default("") @>
 
                               ## ref: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podsecuritycontext-v1-core
                               podSecurityContext:
-                                fsGroup: <@ input.podSecurityContext.fsGroup | default(2004) @>
+                                fsGroup: <@ additionalInput.podSecurityContext.fsGroup | default(2004) @>
 
                               ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
                               securityContext:
-                                readOnlyRootFilesystem: <@ input.securityContext.readOnlyRootFilesystem | default(false | tojson) @>
-                                runAsNonRoot: <@ input.securityContext.runAsNonRoot | default(false | tojson) @>
-                                runAsUser: <@ input.securityContext.runAsUser | default(0) @>
+                                readOnlyRootFilesystem: <@ additionalInput.securityContext.readOnlyRootFilesystem | default(false | tojson) @>
+                                runAsNonRoot: <@ additionalInput.securityContext.runAsNonRoot | default(false | tojson) @>
+                                runAsUser: <@ additionalInput.securityContext.runAsUser | default(0) @>
 
                               ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
                               service:
-                                type: <@ input.service.type | default("ClusterIP") @>
+                                type: <@ additionalInput.service.type | default("ClusterIP") @>
                                 ## The port for Tomcat/Crowd to listen on
-                                port: <@ input.service.port | default(8095) @>
+                                port: <@ additionalInput.service.port | default(8095) @>
                                 ## HTTPS Port, in case ATL_TOMCAT_SCHEME is set to 'https'
-                                httpsPort: <@ input.service.httpsPort | default(None | tojson) @>
-                                loadBalancerIP: <@ input.service.loadBalancerIP | default(None | tojson) @>
+                                httpsPort: <@ additionalInput.service.httpsPort | default(None | tojson) @>
+                                loadBalancerIP: <@ additionalInput.service.loadBalancerIP | default(None | tojson) @>
                                 ## Use nodePorts to requets some specific ports when usin NodePort
                                 ## nodePorts:
                                 ##   http: <to set explicitly, choose port between 30000-32767>
                                 ##   https: <to set explicitly, choose port between 30000-32767>
                                 ##
                                 nodePorts:
-                                  http: <@ input.service.nodePorts.http | default(None | tojson) @>
-                                  https: <@ input.service.nodePorts.https | default(None | tojson) @>
+                                  http: <@ additionalInput.service.nodePorts.http | default(None | tojson) @>
+                                  https: <@ additionalInput.service.nodePorts.https | default(None | tojson) @>
 
                               ## ref: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
                               ## ref: https://kubernetes.io/docs/user-guide/compute-resources/
                               resources:
                                 requests:
-                                  memory: <@ input.resources.requests.memory | default("1G") @>
-                                  cpu: <@ input.resources.requests.cpu | default("500m") @>
+                                  memory: <@ additionalInput.resources.requests.memory | default("1G") @>
+                                  cpu: <@ additionalInput.resources.requests.cpu | default("500m") @>
                                 limits:
-                                  memory: <@ input.resources.limits.memory | default("2G") @>
-                                  cpu: <@ input.resources.limits.cpu | default("1") @>
+                                  memory: <@ additionalInput.resources.limits.memory | default("2G") @>
+                                  cpu: <@ additionalInput.resources.limits.cpu | default("1") @>
 
                               ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
-                              replicaCount: <@ input.replicaCount | default(1) @>
+                              replicaCount: <@ additionalInput.replicaCount | default(1) @>
 
                               ## ref: https://kubernetes.io/docs/user-guide/node-selection/
-                              nodeSelector: <@ input.nodeSelector | default({}) @>
+                              nodeSelector: <@ additionalInput.nodeSelector | default({}) @>
 
                               ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
-                              tolerations: <@ input.tolerations | default([]) @>
+                              tolerations: <@ additionalInput.tolerations | default([]) @>
                               ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
-                              affinity: <@ input.affinity | default({}) @>
+                              affinity: <@ additionalInput.affinity | default({}) @>
                               ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-                              podAnnotations: <@ input.podAnnotations | default({}) @>
+                              podAnnotations: <@ additionalInput.podAnnotations | default({}) @>
 
                               ## Persistent Volume Claim
                               ## Crowd Home directory
                               ## https://kubernetes.io/docs/concepts/storage/persistent-volumes/
                               persistence:
-                                enabled: <@ input.persistence.enabled | default(true | tojson) @>
-                                annotations: <@ input.persistence.annotations | default({}) @>
+                                enabled: <@ additionalInput.persistence.enabled | default(true | tojson) @>
+                                annotations: <@ additionalInput.persistence.annotations | default({}) @>
                                 ## existingClaim needs the existing PVC name
-                                existingClaim: <@ input.persistence.existingClaim | default("") @>
-                                accessMode: <@ input.persistence.accessMode | default("ReadWriteOnce") @>
-                                size: <@ input.persistence.size | default("10Gi") @>
+                                existingClaim: <@ additionalInput.persistence.existingClaim | default("") @>
+                                accessMode: <@ additionalInput.persistence.accessMode | default("ReadWriteOnce") @>
+                                size: <@ additionalInput.persistence.size | default("10Gi") @>
 
                                 # If defined, storageClassName: <storageClass>
                                 ## If set to "-", storageClassName: "", which disables dynamic provisioning
@@ -261,84 +282,98 @@ spec:
                                 ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
                                 ##   GKE, AWS & OpenStack)
                                 ##
-                                storageClass: <@ input.persistence.storageClass | default(None | tojson) @>
+                                storageClass: <@ additionalInput.persistence.storageClass | default(None | tojson) @>
 
                               # Additional volume mounts
-                              extraVolumeMounts: <@ input.extraVolumeMounts | default([]) @>
+                              extraVolumeMounts: <@ additionalInput.extraVolumeMounts | default([]) @>
 
                               # Additional volumes
-                              extraVolumes: <@ input.extraVolumes | default([]) @>
+                              extraVolumes: <@ additionalInput.extraVolumes | default([]) @>
 
                               ## Use an alternate scheduler, e.g. "stork".
                               ## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
-                              schedulerName: <@ input.schedulerName | default("") @>
+                              schedulerName: <@ additionalInput.schedulerName | default("") @>
 
                               ## Container Probes
                               ## ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
                               ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
-                              <% set readinessProbeEnabled = input.readinessProbe.enabled | default(true) %>
+                              <% set readinessProbeEnabled = additionalInput.readinessProbe.enabled | default(true) %>
                               <% if readinessProbeEnabled -%>
                               readinessProbe:
                                 httpGet:
                                   path: /crowd/status
                                   port: http
-                                initialDelaySeconds: <@ input.readinessProbe.initialDelaySeconds | default(120) @>
-                                periodSeconds: <@ input.readinessProbe.periodSeconds | default(30) @>
-                                timeoutSeconds: <@ input.readinessProbe.timeoutSeconds | default(10) @>
-                                failureThreshold: <@ input.readinessProbe.failureThreshold | default(6) @>
-                                successThreshold: <@ input.readinessProbe.successThreshold | default(1) @>
+                                initialDelaySeconds: <@ additionalInput.readinessProbe.initialDelaySeconds | default(120) @>
+                                periodSeconds: <@ additionalInput.readinessProbe.periodSeconds | default(30) @>
+                                timeoutSeconds: <@ additionalInput.readinessProbe.timeoutSeconds | default(10) @>
+                                failureThreshold: <@ additionalInput.readinessProbe.failureThreshold | default(6) @>
+                                successThreshold: <@ additionalInput.readinessProbe.successThreshold | default(1) @>
                               <%- endif %>
 
-                              <% set livenessProbeEnabled = input.livenessProbe.enabled | default(true) %>
+                              <% set livenessProbeEnabled = additionalInput.livenessProbe.enabled | default(true) %>
                               <% if livenessProbeEnabled -%>
                               livenessProbe:
                                 httpGet:
                                   path: /crowd/status
                                   port: http
-                                initialDelaySeconds: <@ input.livenessProbe.initialDelaySeconds | default(120) @>
-                                periodSeconds: <@ input.livenessProbe.periodSeconds | default(30) @>
-                                timeoutSeconds: <@ input.livenessProbe.timeoutSeconds | default(10) @>
-                                failureThreshold: <@ input.livenessProbe.failureThreshold | default(6) @>
-                                successThreshold: <@ input.livenessProbe.successThreshold | default(1) @>
+                                initialDelaySeconds: <@ additionalInput.livenessProbe.initialDelaySeconds | default(120) @>
+                                periodSeconds: <@ additionalInput.livenessProbe.periodSeconds | default(30) @>
+                                timeoutSeconds: <@ additionalInput.livenessProbe.timeoutSeconds | default(10) @>
+                                failureThreshold: <@ additionalInput.livenessProbe.failureThreshold | default(6) @>
+                                successThreshold: <@ additionalInput.livenessProbe.successThreshold | default(1) @>
                               <%- endif %>
 
                               ## Crowd specific configurations
                               ## https://hub.docker.com/r/atlassian/crowd
                               ## crowd/secrets/cas
-                              caCerts: <@ input.caCerts | default({}) @>
+                              caCerts: <@ additionalInput.caCerts | default({}) @>
 
                               initContainerImages:
                                 # used keytool if 'caCerts' is enabled
-                                jdk: <@ input.initContainerImages.jdk | default("adoptopenjdk:11-jdk-hotspot") @>
+                                jdk: <@ additionalInput.initContainerImages.jdk | default("adoptopenjdk:11-jdk-hotspot") @>
 
                               ## Environment Variables that will be injected in the ConfigMap
                               ## Default values unless otherwise stated
                               envVars:
                                 ## Memory / Heap Size (JVM_MINIMUM_MEMORY) Mandatory, see @Notes above
-                                JVM_MINIMUM_MEMORY: <@ input.jvmMinimumMemory | default("1024m") @>
+                                JVM_MINIMUM_MEMORY: <@ additionalInput.jvmMinimumMemory | default("1024m") @>
                                 ## Memory / Heap Size (JVM_MAXIMUM_MEMORY) Mandatory, see @Notes above
-                                JVM_MAXIMUM_MEMORY: <@ input.jvmMaximumMemory | default("1024m") @>
-                                <% if input.envVars -%>
-                                <% for key, value in input.envVars.items() %>
+                                JVM_MAXIMUM_MEMORY: <@ additionalInput.jvmMaximumMemory | default("1024m") @>
+                                <% if additionalInput.envVars -%>
+                                <% for key, value in additionalInput.envVars.items() %>
                                 <@ key @>: <@ value|string @>
                                 <%- endfor %>
                                 <%- endif %>
 
                               ## Additional container environment variables
-                              extraEnv: <@ input.extraEnv | default("-XX:MaxMetaspaceSize=512m") @>
+                              extraEnv: <@ additionalInput.extraEnv | default("-XX:MaxMetaspaceSize=512m") @>
                       - name: input-parameters
-                        from: "{{inputs.artifacts.input-parameters}}"
+                        from: "{{inputs.artifacts.additional-parameters}}"
                       - name: configuration
                         raw:
                           data: |
                             prefix: input
+
+              - - name: fill-input-in-module-args
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.render-helm-args.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{steps.fill-default-input.outputs.artifacts.render}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
 
               - - name: fill-postgresql-params-in-helm-args
                   capact-action: jinja2.template
                   arguments:
                     artifacts:
                       - name: template
-                        from: "{{steps.render-helm-args.outputs.artifacts.render}}"
+                        from: "{{steps.fill-input-in-module-args.outputs.artifacts.render}}"
                       - name: input-parameters
                         from: "{{steps.install-db.outputs.artifacts.postgresql}}"
                       - name: configuration
@@ -387,4 +422,4 @@ spec:
                         from: "{{workflow.outputs.artifacts.runner-context}}"
 
 signature:
-  och: eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9
+  hub: eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9
