@@ -21,16 +21,6 @@ spec:
         "$schema": "http://json-schema.org/draft-07/schema",
         "type": "object",
         "title": "The schema for Atlassian Crowd installation",
-        "required": [
-          "host"
-        ],
-        "$ocfRefs": {
-          "hostname": {
-            "name": "cap.core.type.networking.hostname",
-            "revision": "0.1.0"
-          }
-        },
-        "default": {},
         "properties": {
           "ingress": {
             "$id": "#/properties/ingress",

@@ -145,21 +145,6 @@ spec:
                       - name: database-input
                         from: "{{steps.render-create-db-args.outputs.artifacts.render}}"
 
-              - - name: fill-default-input
-                  capact-action: jinja2.template
-                  arguments:
-                    artifacts:
-                      - name: input-parameters
-                        from: "{{inputs.artifacts.input-parameters}}"
-                      - name: template
-                        raw:
-                          data: |
-                            host: <@ input.host @>
-                      - name: configuration
-                        raw:
-                          data: |
-                            prefix: input
-
               - - name: render-helm-args
                   capact-action: jinja2.template
                   arguments:
@@ -352,7 +337,7 @@ spec:
                       - name: configuration
                         raw:
                           data: |
-                            prefix: input
+                            prefix: additionalInput
 
               - - name: fill-input-in-module-args
                   capact-action: jinja2.template
@@ -361,12 +346,11 @@ spec:
                       - name: template
                         from: "{{steps.render-helm-args.outputs.artifacts.render}}"
                       - name: input-parameters
-                        from: "{{steps.fill-default-input.outputs.artifacts.render}}"
+                        from: "{{inputs.artifacts.input-parameters}}"
                       - name: configuration
                         raw:
                           data: |
                             prefix: input
-
 
               - - name: fill-postgresql-params-in-helm-args
                   capact-action: jinja2.template

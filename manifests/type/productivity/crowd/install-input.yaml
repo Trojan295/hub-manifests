@@ -24,13 +24,6 @@ spec:
         "required": [
           "host"
         ],
-        "$ocfRefs": {
-          "hostname": {
-            "name": "cap.core.type.networking.hostname",
-            "revision": "0.1.0"
-          }
-        },
-        "default": {},
         "properties":{
           "host": {
             "$id": "#/properties/host",
