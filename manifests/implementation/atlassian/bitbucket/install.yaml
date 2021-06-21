@@ -271,14 +271,14 @@ spec:
 
                               serviceAccount:
                                 name: <@ additionalInput.serviceAccount.name | default("") @>
-                                create: <@ additionalInput.serviceAccount.create | default(true) @>
+                                create: <@ additionalInput.serviceAccount.create | default(true) | tojson @>
                                 imagePullSecrets: <@ additionalInput.serviceAccount.imagePullSecrets | default([]) @>
                                 clusterRole:
                                   name: <@ additionalInput.serviceAccount.clusterRole.name | default("") @>
-                                  create: <@ additionalInput.serviceAccount.clusterRole.create | default(true) @>
+                                  create: <@ additionalInput.serviceAccount.clusterRole.create | default(true) | tojson @>
                                 clusterRoleBinding:
                                   name: <@ additionalInput.serviceAccount.clusterRoleBinding.name | default("") @>
-                                  create: <@ additionalInput.serviceAccount.clusterRoleBinding.create | default(true) @>
+                                  create: <@ additionalInput.serviceAccount.clusterRoleBinding.create | default(true) | tojson @>
 
                               database:
                                 url: jdbc:postgresql://<@ installdb.host @>:<@ installdb.port @>/<@ createdb.name @>
@@ -293,7 +293,7 @@ spec:
                                   port: <@ additionalInput.bitbucket.service.port | default(80) @>
                                   type: <@ additionalInput.bitbucket.service.type | default("ClusterIP") @>
                                 securityContext:
-                                  enabled: <@ additionalInput.bitbucket.securityContext.enabled | default(true) @>
+                                  enabled: <@ additionalInput.bitbucket.securityContext.enabled | default(true) | tojson @>
                                   gid: <@ additionalInput.bitbucket.securityContext.gid | default("2003") @>
                                 ports:
                                   http: <@ additionalInput.bitbucket.ports.http | default(7990) @>
@@ -309,7 +309,7 @@ spec:
                                   displayNameSecretKey: "displayName"
                                   emailAddressSecretKey: "emailAddress"
                                 clustering:
-                                  enabled: <@ additionalInput.bitbucket.clustering.enabled | default(false) @>
+                                  enabled: <@ additionalInput.bitbucket.clustering.enabled | default(false) | tojson @>
 
                                 elasticSearch:
                                   baseUrl: <@ elastic.protocol @>://<@ elastic.host @>:<@ elastic.port @>
@@ -346,9 +346,9 @@ spec:
                               <% set ingressCreate = additionalInput.ingress.create | default(true) %>
                               ingress:
                                 create: <@ingressCreate @>
-                                nginx: <@ additionalInput.ingress.nginx | default(true) @>
+                                nginx: <@ additionalInput.ingress.nginx | default(true) | tojson @>
                                 host: <@ input.host @>
-                                https: <@ additionalInput.ingress.https | default(true) @>
+                                https: <@ additionalInput.ingress.https | default(true) | tojson @>
                                 <% if ingressCreate -%>
                                 tlsSecretName: bitbucket-server-tls-<@ random_word(length=5) @>
                                 annotations:
@@ -360,7 +360,7 @@ spec:
                                 <%- endif %>
 
                               fluentd:
-                                enabled: <@ additionalInput.fluentd.enabled | default(false) @>
+                                enabled: <@ additionalInput.fluentd.enabled | default(false) | tojson @>
                                 imageName: <@ additionalInput.fluentd.imageName | default("fluent/fluentd-kubernetes-daemonset:v1.11.5-debian-elasticsearch7-1.2") @>
                                 elasticsearch:
                                   hostname: <@ additionalInput.fluentd.elasticsearch.hostname | default("") @>
@@ -370,7 +370,7 @@ spec:
                               volumes:
                                 localHome:
                                   persistentVolumeClaim:
-                                    create: <@ additionalInput.volumes.localHome.persistentVolumeClaim.create | default(false) @>
+                                    create: <@ additionalInput.volumes.localHome.persistentVolumeClaim.create | default(false) | tojson @>
                                     storageClassName: <@ additionalInput.volumes.localHome.persistentVolumeClaim.storageClassName | default("") @>
                                     resources:
                                       requests:
@@ -379,13 +379,13 @@ spec:
                                   mountPath: <@ additionalInput.volumes.localHome.mountPath | default("/var/atlassian/application-data/bitbucket") @>
                                 sharedHome:
                                   persistentVolume:
-                                    create: <@ additionalInput.volumes.sharedHome.persistentVolume.create | default(false) @>
+                                    create: <@ additionalInput.volumes.sharedHome.persistentVolume.create | default(false) | tojson @>
                                     mountOptions: <@ additionalInput.volumes.sharedHome.persistentVolume.mountOptions | default([]) @>
                                     nfs:
                                       server: <@ additionalInput.volumes.sharedHome.persistentVolume.nfs.server | default("") @>
                                       path: <@ additionalInput.volumes.sharedHome.persistentVolume.nfs.path | default("") @>
                                   persistentVolumeClaim:
-                                    create: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.create | default(false) @>
+                                    create: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.create | default(false) | tojson @>
                                     storageClassName: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.storageClassName | default("") @>
                                     volumeName: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.volumeName | default("") @>
                                     resources:
@@ -395,7 +395,7 @@ spec:
                                   mountPath: <@ additionalInput.volumes.sharedHome.mountPath | default("/var/atlassian/application-data/shared-home") @>
                                   subPath: <@ additionalInput.volumes.sharedHome.subPath | default("") @>
                                   nfsPermissionFixer:
-                                    enabled: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.enabled | default(false) @>
+                                    enabled: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.enabled | default(false) | tojson @>
                                     mountPath: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.mountPath | default("/shared-home") @>
                                     command: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.command | default([]) @>
                                 additional: <@ additionalInput.volumes.additional | default([]) @>

@@ -250,14 +250,14 @@ spec:
                                 tag: <@ additionalInput.image.tag | default("7.12.0") @>
                               serviceAccount:
                                 name: <@ additionalInput.serviceAccount.name | default("") @>
-                                create: <@ additionalInput.serviceAccount.create | default(true) @>
+                                create: <@ additionalInput.serviceAccount.create | default(true) | tojson @>
                                 imagePullSecrets: <@ additionalInput.serviceAccount.imagePullSecrets | default([]) @>
                                 clusterRole:
                                   name: <@ additionalInput.serviceAccount.clusterRole.name | default("") @>
-                                  create: <@ additionalInput.serviceAccount.clusterRole.create | default(true) @>
+                                  create: <@ additionalInput.serviceAccount.clusterRole.create | default(true) | tojson @>
                                 clusterRoleBinding:
                                   name: <@ additionalInput.serviceAccount.clusterRoleBinding.name | default("") @>
-                                  create: <@ additionalInput.serviceAccount.clusterRoleBinding.create | default(true) @>
+                                  create: <@ additionalInput.serviceAccount.clusterRoleBinding.create | default(true) | tojson @>
                               database:
                                 type: postgresql
                                 url: jdbc:postgresql://<@ db.host @>:<@ db.port @>/<@ database.name @>
@@ -272,7 +272,7 @@ spec:
                                   type: <@ additionalInput.confluence.service.type | default("ClusterIP") @>
                                   contextPath: <@ additionalInput.confluence.service.contextPath | default("") @>
                                 securityContext:
-                                  enabled: <@ additionalInput.confluence.securityContext.enabled | default(true) @>
+                                  enabled: <@ additionalInput.confluence.securityContext.enabled | default(true) | tojson @>
                                   gid: <@ additionalInput.confluence.securityContext.gid | default("2002") @>
                                 umask: <@ additionalInput.confluence.umask | default("0022") @>
                                 ports:
@@ -286,12 +286,12 @@ spec:
                                   periodSeconds: <@ additionalInput.confluence.readinessProbe.periodSeconds | default(10) @>
                                   failureThreshold: <@ additionalInput.confluence.readinessProbe.failureThreshold | default(30) @>
                                 accessLog:
-                                  enabled: <@ additionalInput.confluence.accessLog.enabled | default(true) @>
+                                  enabled: <@ additionalInput.confluence.accessLog.enabled | default(true) | tojson @>
                                   mountPath: <@ additionalInput.confluence.accessLog.mountPath | default("/opt/atlassian/confluence/logs") @>
                                   localHomeSubPath: <@ additionalInput.confluence.accessLog.localHomeSubPath | default("logs") @>
                                 clustering:
-                                  enabled: <@ additionalInput.confluence.clustering.enabled | default(true) @>
-                                  usePodNameAsClusterNodeName: <@ additionalInput.confluence.clustering.usePodNameAsClusterNodeName | default(true) @>
+                                  enabled: <@ additionalInput.confluence.clustering.enabled | default(true) | tojson @>
+                                  usePodNameAsClusterNodeName: <@ additionalInput.confluence.clustering.usePodNameAsClusterNodeName | default(true) | tojson @>
                                 resources:
                                   jvm:
                                     maxHeap: <@ additionalInput.confluence.resources.jvm.maxHeap | default("1g") @>
@@ -316,27 +316,27 @@ spec:
                               synchrony:
                                 enabled: false
                               ingress:
-                                create: <@ additionalInput.ingress.create | default(true) @>
-                                nginx: <@ additionalInput.ingress.nginx | default(true) @>
+                                create: <@ additionalInput.ingress.create | default(true) | tojson @>
+                                nginx: <@ additionalInput.ingress.nginx | default(true) | tojson @>
                                 host: <@ input.host @>
                                 annotations:
                                   nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
                                   cert-manager.io/cluster-issuer: letsencrypt
-                                https: <@ additionalInput.ingress.https | default(true) @>
+                                https: <@ additionalInput.ingress.https | default(true) | tojson @>
                                 tlsSecretName: confluence-server-tls-<@ random_word(length=5) @>
                               fluentd:
-                                enabled: <@ additionalInput.fluentd.enabled | default(false) @>
+                                enabled: <@ additionalInput.fluentd.enabled | default(false) | tojson @>
                                 imageName: <@ additionalInput.fluentd.imageName | default("fluent/fluentd-kubernetes-daemonset:v1.11.5-debian-elasticsearch7-1.2") @>
                                 httpPort: <@ additionalInput.fluentd.httpPort | default(9880) @>
                                 elasticsearch:
-                                  enabled: <@ additionalInput.fluentd.elasticsearch.enabled | default(true) @>
+                                  enabled: <@ additionalInput.fluentd.elasticsearch.enabled | default(true) | tojson @>
                                   hostname: <@ additionalInput.fluentd.elasticsearch.hostname | default("elasticsearch") @>
                                   indexNamePrefix: <@ additionalInput.fluentd.elasticsearch.indexNamePrefix | default("confluence") @>
                               podAnnotations: <@ additionalInput.podAnnotations | default({}) @>
                               volumes:
                                 localHome:
                                   persistentVolumeClaim:
-                                    create: <@ additionalInput.volumes.localHome.persistentVolumeClaim.create | default(true) @>
+                                    create: <@ additionalInput.volumes.localHome.persistentVolumeClaim.create | default(true) | tojson @>
                                     storageClassName: <@ additionalInput.volumes.localHome.persistentVolumeClaim.storageClassName | default("") @>
                                     resources:
                                       requests:
@@ -345,7 +345,7 @@ spec:
                                   mountPath: <@ additionalInput.volumes.localHome.mountPath | default("/var/atlassian/application-data/confluence") @>
                                 sharedHome:
                                   persistentVolumeClaim:
-                                    create: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.create | default(true) @>
+                                    create: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.create | default(true) | tojson @>
                                     storageClassName: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.storageClassName | default("") @>
                                     resources:
                                       requests:
@@ -354,7 +354,7 @@ spec:
                                   mountPath: <@ additionalInput.volumes.sharedHome.mountPath | default("/var/atlassian/application-data/shared-home") @>
                                   subPath: <@ additionalInput.volumes.sharedHome.subPath | default("") @>
                                   nfsPermissionFixer:
-                                    enabled: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.enabled | default(false) @>
+                                    enabled: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.enabled | default(false) | tojson @>
                                     mountPath: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.mountPath | default("/shared-home") @>
                                     command: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.command | default("") @>
                                 additional: <@ additionalInput.volumes.additional | default([]) @>

@@ -240,7 +240,7 @@ spec:
                                 tag: <@ additionalInput.image.tag | default("8.16.1") @>
                               serviceAccount:
                                 name: <@ additionalInput.serviceAccount.name | default("") @>
-                                create: <@ additionalInput.serviceAccount.create | default(True) @>
+                                create: <@ additionalInput.serviceAccount.create | default(true) | tojson @>
                                 imagePullSecrets: <@ additionalInput.serviceAccount.imagePullSecrets | default([]) @>
                               database:
                                 type: postgres72
@@ -256,7 +256,7 @@ spec:
                                   type: <@ additionalInput.jira.service.type | default("ClusterIP") @>
                                   contextPath: <@ additionalInput.jira.service.contextPath | default("") @>
                                 securityContext:
-                                  enabled: <@ additionalInput.jira.securityContext.enabled | default(True) @>
+                                  enabled: <@ additionalInput.jira.securityContext.enabled | default(true) | tojson @>
                                   gid: <@ additionalInput.jira.securityContext.gid | default("2001") @>
                                 ports:
                                   http: <@ additionalInput.jira.ports.http | default(8080) @>
@@ -268,7 +268,7 @@ spec:
                                   mountPath: <@ additionalInput.jira.accessLog.mountPath | default("/opt/atlassian/jira/logs") @>
                                   localHomeSubPath: <@ additionalInput.jira.accessLog.localHomeSubPath | default("log") @>
                                 clustering:
-                                  enabled: <@ additionalInput.jira.clustering.enabled | default(True) @>
+                                  enabled: <@ additionalInput.jira.clustering.enabled | default(true) | tojson @>
                                 license:
                                   secretName: <@ optionalLicense.metadata.name @>
                                   secretKey: license-key
@@ -294,28 +294,28 @@ spec:
                                 additionalVolumeMounts: <@ additionalInput.jira.additionalVolumeMounts | default([]) @>
                                 additionalEnvironmentVariables: <@ additionalInput.jira.additionalEnvironmentVariables | default([]) @>
                               ingress:
-                                create: <@ additionalInput.ingress.create | default(True) @>
-                                nginx: <@ additionalInput.ingress.nginx | default(True) @>
+                                create: <@ additionalInput.ingress.create | default(true) | tojson @>
+                                nginx: <@ additionalInput.ingress.nginx | default(true) | tojson @>
                                 host: <@ input.host @>
                                 annotations:
                                   cert-manager.io/cluster-issuer: "letsencrypt"
                                   kubernetes.io/tls-acme: "true"
                                   nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-                                https: <@ additionalInput.ingress.https | default(True) @>
+                                https: <@ additionalInput.ingress.https | default(true) | tojson @>
                                 tlsSecretName: <@ additionalInput.ingress.tlsSecretName | default("jira-server-tls-" + random_word(length=5)) @>
                               fluentd:
-                                enabled: <@ additionalInput.fluentd.enabled | default(False) @>
+                                enabled: <@ additionalInput.fluentd.enabled | default(false) | tojson @>
                                 imageName: <@ additionalInput.fluentd.imageName | default("fluent/fluentd-kubernetes-daemonset:v1.11.5-debian-elasticsearch7-1.2") @>
                                 httpPort: <@ additionalInput.fluentd.httpPort | default(9880) @>
                                 elasticsearch:
-                                  enabled: <@ additionalInput.fluentd.elasticsearch.enabled | default(False) @>
+                                  enabled: <@ additionalInput.fluentd.elasticsearch.enabled | default(false) | tojson @>
                                   hostname: <@ additionalInput.fluentd.elasticsearch.hostname | default("elasticsearch") @>
                                   indexNamePrefix: <@ additionalInput.fluentd.elasticsearch.indexNamePrefix | default("jira") @>
                               podAnnotations: <@ additionalInput.podAnnotations | default({}) @>
                               volumes:
                                 localHome:
                                   persistentVolumeClaim:
-                                    create: <@ additionalInput.volumes.localHome.persistentVolumeClaim.create | default(True) @>
+                                    create: <@ additionalInput.volumes.localHome.persistentVolumeClaim.create | default(true) | tojson @>
                                     storageClassName: <@ additionalInput.volumes.localHome.persistentVolumeClaim.storageClassName | default("") @>
                                     resources:
                                       requests:
@@ -324,7 +324,7 @@ spec:
                                   mountPath: <@ additionalInput.volumes.localHome.mountPath | default("/var/atlassian/application-data/jira") @>
                                 sharedHome:
                                   persistentVolumeClaim:
-                                    create: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.create | default(True) @>
+                                    create: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.create | default(true) | tojson @>
                                     storageClassName: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.storageClassName | default("nfs") @>
                                     resources:
                                       requests:
@@ -333,7 +333,7 @@ spec:
                                   mountPath: <@ additionalInput.volumes.sharedHome.mountPath | default("/var/atlassian/application-data/shared-home") @>
                                   subPath: <@ additionalInput.volumes.sharedHome.subPath | default("") @>
                                   nfsPermissionFixer:
-                                    enabled: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.enabled | default(False) @>
+                                    enabled: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.enabled | default(false) | tojson @>
                                     mountPath: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.mountPath | default("/shared-home") @>
                                     command: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.command | default("") @>
                                 additional: <@ additionalInput.volumes.additional | default([]) @>
