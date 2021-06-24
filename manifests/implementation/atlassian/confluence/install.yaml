@@ -1,0 +1,482 @@
+ocfVersion: 0.0.1
+revision: 0.1.0
+kind: Implementation
+metadata:
+  prefix: cap.implementation.atlassian.confluence
+  name: install
+  displayName: Install Confluence
+  description: Action which installs Confluence via Helm chart
+  documentationURL: https://github.com/javimox/helm-charts/tree/master/charts/confluence-server
+  supportURL: https://mox.sh/helm/
+  license:
+    name: "Apache 2.0"
+  maintainers:
+    - email: team-dev@capact.io
+      name: Capact Dev Team
+      url: https://capact.io
+
+spec:
+  appVersion: "2.x.x"
+
+  additionalInput:
+    typeInstances:
+      postgresql:
+        typeRef:
+          path: cap.type.database.postgresql.config
+          revision: 0.1.0
+        verbs: [ "get" ]
+    parameters:
+      typeRef:
+        path: cap.type.atlassian.confluence.helm.install-input
+        revision: 0.1.0
+
+  outputTypeInstanceRelations:
+      confluence-config:
+        uses:
+          - confluence-helm-release
+          - postgresql
+          - database
+          - user
+
+  implements:
+    - path: cap.interface.productivity.confluence.install
+      revision: 0.1.0
+
+  requires:
+    cap.core.type.platform:
+      oneOf:
+        - name: kubernetes
+          revision: 0.1.0
+
+  imports:
+    - interfaceGroupPath: cap.interface.runner.argo
+      alias: argo
+      methods:
+        - name: run
+          revision: 0.1.0
+    - interfaceGroupPath: cap.interface.runner.helm
+      alias: helm
+      methods:
+        - name: install
+          revision: 0.1.0
+    - interfaceGroupPath: cap.interface.database.postgresql
+      alias: postgresql
+      methods:
+        - name: install
+          revision: 0.1.0
+        - name: create-user
+          revision: 0.1.0
+        - name: create-db
+          revision: 0.1.0
+    - interfaceGroupPath: cap.interface.templating.jinja2
+      alias: jinja2
+      methods:
+        - name: template
+          revision: 0.1.0
+
+  action:
+    runnerInterface: argo.run
+    args:
+      workflow:
+        entrypoint: main
+        templates:
+          - name: main
+            # Capact Engine will inject the 'input-parameters' artifacts into the workflow entrypoint.
+            # It contains the Interface parameters, in our case it is `confluence.install-input`.
+            inputs:
+              artifacts:
+                - name: input-parameters
+                - name: additional-parameters
+                  optional: true
+                - name: postgresql
+                  optional: true
+            steps:
+              # If the postgresql TypeInstance was not provided, then create it
+              # using the imported 'postgresql.install' Interface.
+              - - name: install-db
+                  capact-action: postgresql.install
+                  capact-when: postgresql == nil
+                  capact-outputTypeInstances:
+                    - name: postgresql
+                      from: postgresql
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        raw:
+                          data: |
+                            superuser:
+                              username: superuser
+                              password: okon
+                            defaultDBName: postgres
+
+              - - name: create-user
+                  capact-action: postgresql.create-user
+                  capact-outputTypeInstances:
+                    - name: user
+                      from: user
+                  arguments:
+                    artifacts:
+                      - name: postgresql
+                        from: "{{steps.install-db.outputs.artifacts.postgresql}}"
+                      - name: user-input
+                        raw:
+                          data: |
+                            name: confluence
+
+              - - name: render-create-db-args
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            name: confluencedb
+                            owner: "<@ name @>"
+                      - name: input-parameters
+                        from: "{{steps.create-user.outputs.artifacts.user}}"
+                      - name: configuration
+                        raw:
+                          data: |
+
+              # Create the database for Confluence in our PostgreSQL instance
+              # using the imported 'postgresql.create-db' Interface
+              - - name: create-db
+                  capact-action: postgresql.create-db
+                  capact-outputTypeInstances:
+                    - name: database                  # Defining the output TypeInstance 'database'
+                      from: database
+                  arguments:
+                    artifacts:
+                      - name: postgresql
+                        from: "{{steps.install-db.outputs.artifacts.postgresql}}"
+                      - name: database-input
+                        from: "{{steps.render-create-db-args.outputs.artifacts.render}}"
+
+              - - name: render-secret-manifest
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            apiVersion: v1
+                            kind: Secret
+                            metadata:
+                              generateName: confluence-database-basic-auth-
+                            type: kubernetes.io/basic-auth
+                            stringData:
+                              username: <@ user.name @>
+                              password: <@ user.password @>
+                      - name: input-parameters
+                        from: "{{steps.create-user.outputs.artifacts.user}}"
+                      - name: configuration
+                        raw:
+                          data: "prefix: user"
+
+              - - name: create-basic-auth-secret
+                  template: kubectl-create
+                  arguments:
+                    artifacts:
+                      - name: manifest
+                        from: "{{steps.render-secret-manifest.outputs.artifacts.render}}"
+
+              - - name: create-license-args
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            <% if additionalInput.confluence.licenseKeyInBase64 %>
+                            apiVersion: v1
+                            kind: Secret
+                            metadata:
+                              generateName: confluence-license-
+                            data:
+                              license-key: <@ additionalInput.confluence.licenseKeyInBase64 @>
+                            <% endif %>
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.additional-parameters}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: additionalInput
+
+              - - name: create-license-secret
+                  template: kubectl-create
+                  arguments:
+                    artifacts:
+                      - name: manifest
+                        from: "{{steps.create-license-args.outputs.artifacts.render}}"
+
+              - - name: fill-default-input
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.input-parameters}}"
+                      - name: template
+                        raw:
+                          data: |
+                            host: <@ input.host @>
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+              # Here we prepare the input for the Helm runner. In the next two steps,
+              # we use Jinja2 to render the input and fill the required parameters.
+              # In the future there might be better way to do this.
+              - - name: render-helm-args
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            generateName: true
+                            chart:
+                              name: "confluence"
+                              repo: "https://atlassian-labs.github.io/data-center-helm-charts"
+                            output:
+                              goTemplate: |
+                                version: "{{ .Values.image.tag }}"
+                                host: "{{ .Values.ingress.host }}"
+                            values:
+                              replicaCount: <@ additionalInput.replicaCount | default(1) @>
+                              image:
+                                repository: <@ additionalInput.image.repository | default("atlassian/confluence-server") @>
+                                pullPolicy: <@ additionalInput.image.pullPolicy | default("IfNotPresent") @>
+                                tag: <@ additionalInput.image.tag | default("7.12.0") @>
+                              serviceAccount:
+                                name: <@ additionalInput.serviceAccount.name | default("") @>
+                                create: <@ additionalInput.serviceAccount.create | default(true) | tojson @>
+                                imagePullSecrets: <@ additionalInput.serviceAccount.imagePullSecrets | default([]) @>
+                                clusterRole:
+                                  name: <@ additionalInput.serviceAccount.clusterRole.name | default("") @>
+                                  create: <@ additionalInput.serviceAccount.clusterRole.create | default(true) | tojson @>
+                                clusterRoleBinding:
+                                  name: <@ additionalInput.serviceAccount.clusterRoleBinding.name | default("") @>
+                                  create: <@ additionalInput.serviceAccount.clusterRoleBinding.create | default(true) | tojson @>
+                              database:
+                                type: postgresql
+                                url: jdbc:postgresql://<@ db.host @>:<@ db.port @>/<@ database.name @>
+                                driver: <@ additionalInput.database.driver | default("org.postgresql.Driver") @>
+                                credentials:
+                                  secretName: <@ secret.metadata.name @>
+                                  usernameSecretKey: username
+                                  passwordSecretKey: password
+                              confluence:
+                                service:
+                                  port: <@ additionalInput.confluence.service.port | default(80) @>
+                                  type: <@ additionalInput.confluence.service.type | default("ClusterIP") @>
+                                  contextPath: <@ additionalInput.confluence.service.contextPath | default("") @>
+                                securityContext:
+                                  enabled: <@ additionalInput.confluence.securityContext.enabled | default(true) | tojson @>
+                                  gid: <@ additionalInput.confluence.securityContext.gid | default("2002") @>
+                                umask: <@ additionalInput.confluence.umask | default("0022") @>
+                                ports:
+                                  http: <@ additionalInput.confluence.ports.http | default(8090) @>
+                                  hazelcast: <@ additionalInput.confluence.ports.hazelcast | default(5701) @>
+                                license:
+                                  secretName: <@ optionalLicense.metadata.name @>
+                                  secretKey: license-key
+                                readinessProbe:
+                                  initialDelaySeconds: <@ additionalInput.confluence.readinessProbe.initialDelaySeconds | default(10) @>
+                                  periodSeconds: <@ additionalInput.confluence.readinessProbe.periodSeconds | default(10) @>
+                                  failureThreshold: <@ additionalInput.confluence.readinessProbe.failureThreshold | default(30) @>
+                                accessLog:
+                                  enabled: <@ additionalInput.confluence.accessLog.enabled | default(true) | tojson @>
+                                  mountPath: <@ additionalInput.confluence.accessLog.mountPath | default("/opt/atlassian/confluence/logs") @>
+                                  localHomeSubPath: <@ additionalInput.confluence.accessLog.localHomeSubPath | default("logs") @>
+                                clustering:
+                                  enabled: <@ additionalInput.confluence.clustering.enabled | default(true) | tojson @>
+                                  usePodNameAsClusterNodeName: <@ additionalInput.confluence.clustering.usePodNameAsClusterNodeName | default(true) | tojson @>
+                                resources:
+                                  jvm:
+                                    maxHeap: <@ additionalInput.confluence.resources.jvm.maxHeap | default("1g") @>
+                                    minHeap: <@ additionalInput.confluence.resources.jvm.minHeap | default("1g") @>
+                                    reservedCodeCache: <@ additionalInput.confluence.resources.jvm.reservedCodeCache | default("512m") @>
+                                  <% if additionalInput.confluence.resources.container %>
+                                  container: <@ additionalInput.confluence.resources.container @>
+                                  <% else %>
+                                  container:
+                                    limits:
+                                      cpu: "4"
+                                      memory: "8G"
+                                    requests:
+                                      cpu: "1"
+                                      memory: "2G"
+                                  <% endif %>
+                                additionalJvmArgs: <@ additionalInput.confluence.additionalJvmArgs | default([]) @>
+                                additionalLibraries: <@ additionalInput.confluence.additionalLibraries | default([]) @>
+                                additionalBundledPlugins: <@ additionalInput.confluence.additionalBundledPlugins | default([]) @>
+                                additionalVolumeMounts: <@ additionalInput.confluence.additionalVolumeMounts | default([]) @>
+                                additionalEnvironmentVariables: <@ additionalInput.confluence.additionalEnvironmentVariables | default([{"name": "ATL_TOMCAT_MAXTHREADS", "value": "48"}]) @>
+                              synchrony:
+                                enabled: false
+                              ingress:
+                                create: <@ additionalInput.ingress.create | default(true) | tojson @>
+                                nginx: <@ additionalInput.ingress.nginx | default(true) | tojson @>
+                                host: <@ input.host @>
+                                annotations:
+                                  nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+                                  cert-manager.io/cluster-issuer: letsencrypt
+                                https: <@ additionalInput.ingress.https | default(true) | tojson @>
+                                tlsSecretName: confluence-server-tls-<@ random_word(length=5) @>
+                              fluentd:
+                                enabled: <@ additionalInput.fluentd.enabled | default(false) | tojson @>
+                                imageName: <@ additionalInput.fluentd.imageName | default("fluent/fluentd-kubernetes-daemonset:v1.11.5-debian-elasticsearch7-1.2") @>
+                                httpPort: <@ additionalInput.fluentd.httpPort | default(9880) @>
+                                elasticsearch:
+                                  enabled: <@ additionalInput.fluentd.elasticsearch.enabled | default(true) | tojson @>
+                                  hostname: <@ additionalInput.fluentd.elasticsearch.hostname | default("elasticsearch") @>
+                                  indexNamePrefix: <@ additionalInput.fluentd.elasticsearch.indexNamePrefix | default("confluence") @>
+                              podAnnotations: <@ additionalInput.podAnnotations | default({}) @>
+                              volumes:
+                                localHome:
+                                  persistentVolumeClaim:
+                                    create: <@ additionalInput.volumes.localHome.persistentVolumeClaim.create | default(true) | tojson @>
+                                    storageClassName: <@ additionalInput.volumes.localHome.persistentVolumeClaim.storageClassName | default("") @>
+                                    resources:
+                                      requests:
+                                        storage: <@ additionalInput.volumes.localHome.persistentVolumeClaim.resources.requests.storage | default("1Gi") @>
+                                  customVolume: <@ additionalInput.volumes.localHome.customVolume | default({}) @>
+                                  mountPath: <@ additionalInput.volumes.localHome.mountPath | default("/var/atlassian/application-data/confluence") @>
+                                sharedHome:
+                                  persistentVolumeClaim:
+                                    create: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.create | default(true) | tojson @>
+                                    storageClassName: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.storageClassName | default("") @>
+                                    resources:
+                                      requests:
+                                        storage: <@ additionalInput.volumes.sharedHome.persistentVolumeClaim.resources.requests.storage | default("1Gi") @>
+                                  customVolume: <@ additionalInput.volumes.sharedHome.customVolume | default({}) @>
+                                  mountPath: <@ additionalInput.volumes.sharedHome.mountPath | default("/var/atlassian/application-data/shared-home") @>
+                                  subPath: <@ additionalInput.volumes.sharedHome.subPath | default("") @>
+                                  nfsPermissionFixer:
+                                    enabled: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.enabled | default(false) | tojson @>
+                                    mountPath: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.mountPath | default("/shared-home") @>
+                                    command: <@ additionalInput.volumes.sharedHome.nfsPermissionFixer.command | default("") @>
+                                additional: <@ additionalInput.volumes.additional | default([]) @>
+                              nodeSelector: <@ additionalInput.nodeSelector | default({}) @>
+                              tolerations: <@ additionalInput.tolerations | default([]) @>
+                              affinity: <@ additionalInput.affinity | default({}) @>
+                              additionalContainers: <@ additionalInput.additionalContainers | default([]) @>
+                              additionalInitContainers: <@ additionalInput.additionalInitContainers | default([]) @>
+                              additionalLabels: <@ additionalInput.additionalLabels | default({}) @>
+                              additionalFiles: <@ additionalInput.additionalFiles | default([]) @>
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.additional-parameters}}"
+                      - name: configuration
+                        raw:
+                          data: "prefix: additionalInput"
+
+              - - name: fill-input-in-module-args
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.render-helm-args.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{steps.fill-default-input.outputs.artifacts.render}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+              - - name: fill-database-params-in-helm-args
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.fill-input-in-module-args.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{steps.create-db.outputs.artifacts.database}}"
+                      - name: configuration
+                        raw:
+                          data: "prefix: database"
+
+              - - name: fill-db-params-in-helm-args
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.fill-database-params-in-helm-args.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{steps.install-db.outputs.artifacts.postgresql}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: db
+
+              - - name: fill-secret-name-in-helm-args
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.fill-db-params-in-helm-args.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{steps.create-basic-auth-secret.outputs.artifacts.manifest}}"
+                      - name: configuration
+                        raw:
+                          data: "prefix: secret"
+
+              - - name: fill-license-params-in-helm-args
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.fill-secret-name-in-helm-args.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{steps.create-license-secret.outputs.artifacts.manifest}}"
+                      - name: configuration
+                        raw:
+                          data: "prefix: optionalLicense"
+
+              # Execute the Helm runner, with the input parameters created in the previous step.
+              # This will create the Helm chart and deploy our Confluence instance
+              - - name: helm-install
+                  capact-action: helm.install
+                  capact-outputTypeInstances:
+                    - name: confluence-config         # Defining the output TypeInstance 'confluence-config'
+                      from: additional
+                    - name: confluence-helm-release   # Defining the output TypeInstance 'confluence-helm-release'
+                      from: helm-release
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{steps.fill-license-params-in-helm-args.outputs.artifacts.render}}"
+                      - name: runner-context
+                        from: "{{workflow.outputs.artifacts.runner-context}}"
+
+          # You can always run custom images, we use the kubectl image to create a K8s resources
+          # it will use the same serviceAccount as `helm install`
+          - name: kubectl-create
+            inputs:
+              artifacts:
+                - name: manifest
+                  path: "/in/manifest.yaml"
+            outputs:
+              artifacts:
+                - name: manifest
+                  path: "/tmp/manifest.yaml"
+            script:
+              image: bitnami/kubectl:1.18
+              command: [ bash ]
+              source: |
+                # Checking if manifest is not empty
+                if grep -q '[^[:space:]]' "{{inputs.artifacts.manifest.path}}"; then
+                echo "Creating Kubernetes resource..."
+                kubectl create -f {{inputs.artifacts.manifest.path}} --output=yaml > {{outputs.artifacts.manifest.path}}
+                else
+                echo "Creating empty data as the input manifest is empty..."
+                cat > "{{outputs.artifacts.manifest.path}}" <<-'EOF'
+                metadata:
+                  name: ""
+                EOF
+                fi
+                # Known bug with PNS executor, which doesn't work when pod exists too early.
+                sleep 1
+
+signature:
+  hub: eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9
