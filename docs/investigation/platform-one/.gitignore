@@ -1,0 +1,6 @@
+*.tfvars
+.terraform*
+terraform.tfvars
+terraform.tfstate*
+rke2-tf/rke2.yaml
+*.pem
