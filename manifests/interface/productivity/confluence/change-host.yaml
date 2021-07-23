@@ -33,15 +33,16 @@ spec:
           value: |-
             {
               "$schema": "http://json-schema.org/draft-07/schema",
-              "$ocfRefs": {
+              "definitions": {
                 "hostname": {
-                  "name": "cap.core.type.networking.hostname",
-                  "revision": "0.1.0"
+                  "type": "string",
+                  "format": "hostname",
+                  "title": "Hostname"
                 }
               },
               "required": ["host"],
               "properties": {
-                "host": { "$ref": "#/$ocfRefs/hostname" }
+                "host": { "$ref": "#/definitions/hostname" }
               }
               "additionalProperties": false
             }
