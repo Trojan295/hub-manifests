@@ -30,10 +30,6 @@ spec:
             "type": "string",
             "title": "Host for Crowd application"
           }
-        }, 
+        },
         "additionalProperties": false
       }
-
-
-signature:
-  hub: eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9

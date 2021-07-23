@@ -35,6 +35,3 @@ spec:
         typeRef:
           path: cap.type.productivity.bitbucket.config
           revision: 0.1.0
-
-signature:
-  hub: eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9

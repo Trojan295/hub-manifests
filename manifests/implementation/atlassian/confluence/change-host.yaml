@@ -99,7 +99,3 @@ spec:
                         from: "{{workflow.outputs.artifacts.runner-context}}"
                       - name: helm-release
                         from: "{{inputs.artifacts.confluence-helm-release}}"
-
-
-signature:
-  hub: eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9

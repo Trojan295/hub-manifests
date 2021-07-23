@@ -477,6 +477,3 @@ spec:
                 fi
                 # Known bug with PNS executor, which doesn't work when pod exists too early.
                 sleep 1
-
-signature:
-  hub: eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9
