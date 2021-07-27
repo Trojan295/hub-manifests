@@ -7,6 +7,6 @@ output "username" {
 }
 
 output "password" {
-  value = google_sql_user.users.password
+  value     = google_sql_user.users.password
   sensitive = true
 }

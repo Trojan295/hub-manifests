@@ -1,0 +1,42 @@
+ocfVersion: 0.0.1
+revision: 0.1.0
+kind: Type
+metadata:
+  name: instance
+  prefix: cap.type.aws.ec2
+  displayName: EC2 instance
+  description: Describes an EC2 instance
+  documentationURL: https://aws.amazon.com/ec2/
+  supportURL: https://aws.amazon.com/ec2/
+  maintainers:
+    - email: team-dev@capact.io
+      name: Capact Dev Team
+      url: https://capact.io
+
+spec:
+  jsonSchema:
+    value: |-
+      {
+        "$schema": "http://json-schema.org/draft-07/schema",
+        "type": "object",
+        "title": "EC2 instance",
+        "examples": [
+          {
+            "publicIPAddress": "83.14.64.126",
+            "username": "ec2-user"
+          }
+        ],
+        "properties": {
+          "publicIPAddress": {
+            "$id": "#/properties/publicIPAddress",
+            "type": "string",
+            "title": "Public IP address of the instance"
+          },
+          "username": {
+            "$id": "#/properties/username",
+            "type": "string",
+            "title": "Username to login to the instance"
+          },
+        },
+        "additionalProperties": false
+      }

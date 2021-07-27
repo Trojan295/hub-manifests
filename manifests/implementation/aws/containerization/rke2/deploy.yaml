@@ -1,0 +1,359 @@
+ocfVersion: 0.0.1
+revision: 0.1.0
+kind: Implementation
+metadata:
+  prefix: cap.implementation.aws.containerization.rke
+  name: deploy
+  displayName: "Deploy RKE2 environment on AWS"
+  description: "AWS RKE2 deployment Action"
+  documentationURL: https://docs.rke2.io/
+  supportURL: https://docs.rke2.io/
+  license:
+    name: "Apache 2.0"
+  maintainers:
+    - email: team-dev@capact.io
+      name: Capact Dev Team
+      url: https://capact.io
+
+spec:
+  appVersion: "1.20.x"
+  additionalInput:
+    parameters:
+      typeRef:
+        path: cap.type.containerization.rke2.deploy-input
+        revision: 0.1.0
+
+  additionalOutput:
+    typeInstances:
+      bastion:
+        typeRef:
+          path: cap.type.aws.ec2.instance
+          revision: 0.1.0
+      ssh-key:
+        typeRef:
+          path: cap.type.authentication.ssh-key
+          revision: 0.1.0
+
+  outputTypeInstanceRelations:
+    kubeconfig: {}
+    ssh-key: {}
+    bastion:
+      uses:
+        - ssh-key
+    cluster:
+      uses:
+        - kubeconfig
+        - terraform-release
+        - bastion
+
+  implements:
+    - path: cap.interface.containerization.kubernetes.deploy
+      revision: 0.1.0
+
+  requires:
+    cap.type.aws.auth:
+      allOf:
+        - name: credentials
+          alias: aws-credentials
+          revision: 0.1.0
+
+  imports:
+    - interfaceGroupPath: cap.interface.runner.argo
+      alias: argo
+      methods:
+        - name: run
+          revision: 0.1.0
+    - interfaceGroupPath: cap.interface.templating.jinja2
+      alias: jinja2
+      methods:
+        - name: template
+          revision: 0.1.0
+    - interfaceGroupPath: cap.interface.runner.terraform
+      alias: terraform
+      methods:
+        - name: apply
+          revision: 0.1.0
+
+  action:
+    runnerInterface: argo.run
+    args:
+      workflow:
+        entrypoint: rke2-deploy
+        templates:
+          - name: rke2-deploy
+            inputs:
+              artifacts:
+                - name: input-parameters
+                - name: additional-parameters
+                  optional: true
+            steps:
+              - - name: fill-default-input
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.input-parameters}}"
+                      - name: template
+                        raw:
+                          data: |
+                            name: "<@ input.name @>"
+                            workers: <@ input.workers | default(2) @>
+                            controlPlanes: <@ input.controlPlanes | default(1) @>
+                            version: "<@ input.version | default('v1.20.5') @>"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+              - - name: create-module-args
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.additional-parameters}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: additionalInput
+                      - name: template
+                        raw:
+                          data: |
+                            command: "apply"
+                            module:
+                              name: "rke2"
+                              source: "https://storage.googleapis.com/capactio-terraform-modules/terraform.aws.containerization.rke2.deploy/0.1.0/module.tgz"
+                            env:
+                            - AWS_ACCESS_KEY_ID=<@ aws.accessKeyID @>
+                            - AWS_SECRET_ACCESS_KEY=<@ aws.secretAccessKey @>
+                            output:
+                              goTemplate:
+                                cluster_name: "{{ .cluster_name }}"
+                                kubeconfig_s3_path: "{{ .kubeconfig_s3_path }}"
+                                kubernetes_version: "{{ .kubernetes_version }}"
+                                kubernetes_api_server_url: "{{ .kubernetes_api_server_url }}"
+                                private_ssh_key: "{{ .private_ssh_key }}"
+                                bastion_public_ip_address: "{{ .bastion_public_ip_address }}"
+                                bastion_username: "{{ .bastion_username }}"
+
+                            variables: |+
+                              namespace = "<@ input.name @>"
+                              servers = <@ input.controlPlanes @>
+                              agent_asg = { min : 1, max : <@ input.workers @>, desired : <@ input.workers @> }
+                              rke2_version = "<@ input.version @>+rke2r1"
+
+                              <% if input.aws_region -%>
+                              aws_region = "<@ input.aws_region @>"
+                              <%- endif %>
+
+                              <% if input.tags -%>
+                              tags = "<@ input.tags @>"
+                              <%- endif %>
+
+                              <% if input.vpc_cidr -%>
+                              vpc_cidr = "<@ input.vpc_cidr @>"
+                              <%- endif %>
+
+                              <% if input.controlplane_internal -%>
+                              controlplane_internal = "<@ input.controlplane_internal @>"
+                              <%- endif %>
+
+                              <% if input.enable_ccm -%>
+                              enable_ccm = "<@ input.enable_ccm @>"
+                              <%- endif %>
+
+                              <% if input.registries_config -%>
+                              registries_config = "<@ input.registries_config @>"
+                              <%- endif %>
+
+                              <% if input.user_data -%>
+                              user_data = "<@ input.user_data @>"
+                              <%- endif %>
+
+                              <% if input.nodes_download_dependencies -%>
+                              nodes_download_dependencies = "<@ input.nodes_download_dependencies @>"
+                              <%- endif %>
+
+                              <% if input.server_ami -%>
+                              server_ami = "<@ input.server_ami @>"
+                              <%- endif %>
+
+                              <% if input.server_instance_type -%>
+                              server_instance_type = "<@ input.server_instance_type @>"
+                              <%- endif %>
+
+                              <% if input.agent_ami -%>
+                              agent_ami = "<@ input.agent_ami @>"
+                              <%- endif %>
+
+                              <% if input.agent_instance_type -%>
+                              agent_instance_type = "<@ input.agent_instance_type @>"
+                              <%- endif %>
+
+                              <% if input.use_spot_agents -%>
+                              use_spot_agents = "<@ input.use_spot_agents @>"
+                              <%- endif %>
+
+                              <% if input.enable_autoscaler -%>
+                              enable_autoscaler = "<@ input.enable_autoscaler @>"
+                              <%- endif %>
+
+                              <% if input.enable_bastion -%>
+                              enable_bastion = "<@ input.enable_bastion @>"
+                              <%- endif %>
+
+                              <% if input.bastion_instance_type -%>
+                              bastion_instance_type = "<@ input.bastion_instance_type @>"
+                              <%- endif %>
+
+              - - name: fill-parameters
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.create-module-args.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{steps.fill-default-input.outputs.artifacts.render}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+              - - name: fill-aws-params-in-module-args
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.fill-parameters.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{workflow.outputs.artifacts.aws-credentials}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: aws
+
+              - - name: terraform-apply
+                  capact-action: terraform.apply
+                  capact-outputTypeInstances:
+                    - name: terraform-release
+                      from: terraform-release
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{steps.fill-aws-params-in-module-args.outputs.artifacts.render}}"
+                      - name: runner-context
+                        from: "{{workflow.outputs.artifacts.runner-context}}"
+
+              - - name: prep-kubeconfig-script
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{steps.terraform-apply.outputs.artifacts.additional}}"
+                      - name: template
+                        raw:
+                          data: |
+                            export AWS_ACCESS_KEY_ID="<@ aws.accessKeyID @>"
+                            export AWS_SECRET_ACCESS_KEY="<@ aws.secretAccessKey @>"
+                            export KUBECONFIG_S3_PATH="<@ input.kubeconfig_s3_path @>"
+
+                            aws s3 cp "${KUBECONFIG_S3_PATH}" - | sed "s/^/  /" | sed "1s/^/config: |\n/" > /tmp/kubeconfig
+
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+              - - name: aws-params-in-kc-script
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.prep-kubeconfig-script.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{workflow.outputs.artifacts.aws-credentials}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: aws
+
+              - - name: render-kubeconfig
+                  capact-outputTypeInstances:
+                    - name: kubeconfig
+                      from: kubeconfig
+                  template: fetch-kubeconfig
+                  arguments:
+                    artifacts:
+                      - name: script
+                        from: "{{steps.aws-params-in-kc-script.outputs.artifacts.render}}"
+
+              - - name: render-cluster
+                  capact-outputTypeInstances:
+                    - name: cluster
+                      from: render
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{steps.terraform-apply.outputs.artifacts.additional}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+                      - name: template
+                        raw:
+                          data: |
+                            name: "<@ input.cluster_name @>"
+                            type: "rke2"
+                            version: "<@ input.kubernetes_version @>"
+                            apiServerUrl: "<@ input.kubernetes_api_server_url @>"
+
+              - - name: render-bastion
+                  capact-outputTypeInstances:
+                    - name: bastion
+                      from: render
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{steps.terraform-apply.outputs.artifacts.additional}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+                      - name: template
+                        raw:
+                          data: |
+                            publicIPAddress: "<@ input.bastion_public_ip_address @>"
+                            username: "<@ input.bastion_username @>"
+
+              - - name: render-ssh-key
+                  capact-outputTypeInstances:
+                    - name: ssh-key
+                      from: render
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{steps.terraform-apply.outputs.artifacts.additional}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+                      - name: template
+                        raw:
+                          data: |
+                            privateKey: "<@ input.private_ssh_key @>"
+
+          - name: fetch-kubeconfig
+            inputs:
+              artifacts:
+                - name: script
+                  path: "/in/script.sh"
+            outputs:
+              artifacts:
+                - name: kubeconfig
+                  path: "/tmp/kubeconfig"
+            container:
+              image: amazon/aws-cli:2.2.20
+              command: [sh]
+              args: ["/in/script.sh"]

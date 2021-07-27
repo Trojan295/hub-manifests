@@ -1,0 +1,33 @@
+ocfVersion: 0.0.1
+revision: 0.1.0
+kind: Interface
+metadata:
+  prefix: cap.interface.containerization.kubernetes
+  name: deploy
+  displayName: "Deploy"
+  description: "Deploy action for Kubernetes"
+  documentationURL: https://kubernetes.io/docs/home/
+  supportURL: https://kubernetes.io/
+  iconURL: https://linuxfoundation.org/wp-content/uploads/trademark-kubernetes-icon-correct-140x140-1.png
+  maintainers:
+    - email: team-dev@capact.io
+      name: Capact Dev Team
+      url: https://capact.io
+
+spec:
+  input:
+    parameters:
+      input-parameters:
+        typeRef:
+          path: cap.type.containerization.kubernetes.deploy-input
+          revision: "0.1.0"
+  output:
+    typeInstances:
+      kubeconfig:
+        typeRef:
+          path: cap.type.containerization.kubernetes.kubeconfig
+          revision: 0.1.0
+      cluster:
+        typeRef:
+          path: cap.type.containerization.kubernetes.cluster
+          revision: 0.1.0

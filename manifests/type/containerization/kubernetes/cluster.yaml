@@ -1,0 +1,51 @@
+ocfVersion: 0.0.1
+revision: 0.1.0
+kind: Type
+metadata:
+  name: cluster
+  prefix: cap.type.containerization.kubernetes
+  displayName: Kubernetes cluster
+  description: Defines a Kubernetes cluster
+  supportURL: https://kubernetes.io/
+  documentationURL: https://kubernetes.io/docs/home/
+  maintainers:
+    - email: team-dev@capact.io
+      name: Capact Dev Team
+      url: https://capact.io
+spec:
+  jsonSchema:
+    value: |-
+      {
+        "$schema": "http://json-schema.org/draft-07/schema",
+        "type": "object",
+        "title": "Kubernetes cluster details",
+        "required": [
+          "name",
+          "version",
+          "apiServerUrl",
+          "type"
+        ],
+        "properties": {
+          "name": {
+            "$id": "#/properties/name",
+            "type": "string",
+            "title": "Cluster name"
+          },
+          "version": {
+            "$id": "#/properties/version",
+            "type": "string",
+            "title": "Version of the Kubernetes cluster"
+          },
+          "apiServerUrl": {
+            "$id": "#/properties/apiServerUrl",
+            "type": "string",
+            "title": "URL to the Kubernetes API server"
+          },
+          "type": {
+            "$id": "#/properties/type",
+            "type": "string",
+            "title": "Type of the Kubernetes cluster."
+           }
+        },
+        "additionalProperties": false
+      }

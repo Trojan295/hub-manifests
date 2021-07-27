@@ -1,0 +1,49 @@
+ocfVersion: 0.0.1
+revision: 0.1.0
+kind: Type
+metadata:
+  name: deploy-input
+  prefix: cap.type.containerization.kubernetes
+  displayName: Kubernetes cluster deployment input
+  description: Defines input for Kubernetes cluster deployment
+  documentationURL: https://capact.io
+  supportURL: https://capact.io
+  maintainers:
+    - email: team-dev@capact.io
+      name: Capact Dev Team
+      url: https://capact.io
+spec:
+  jsonSchema:
+    value: |-
+     {
+       "$schema": "http://json-schema.org/draft-07/schema",
+       "type": "object",
+       "title": "The schema for Kubernetes cluster deployment input",
+       "required": [
+           "name"
+       ],
+       "properties": {
+         "name": {
+           "$id": "#/properties/name",
+           "type": "string",
+           "title": "Defines a cluster name"
+         },
+         "version": {
+           "$id": "#/properties/version",
+           "type": "string",
+           "title": "Version of the cluster",
+           "default": "v1.20.5"
+         },
+         "workers": {
+           "$id": "#/properties/workers",
+           "type": "integer",
+           "title": "Defines number of worker nodes"
+         },
+         "controlPlanes": {
+           "$id": "#/properties/controlPlanes",
+           "type": "integer",
+           "title": "Defines a number of control plane nodes"
+         }
+       },
+       "additionalProperties": false
+     }

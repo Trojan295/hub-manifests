@@ -35,5 +35,5 @@ output "vpc_options_vpc_id" {
 
 output "elasticsearch_version" {
   description = "Version of the Elasticsearch domain"
-  value = var.elasticsearch_version
+  value       = var.elasticsearch_version
 }
