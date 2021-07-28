@@ -1,0 +1,67 @@
+ocfVersion: 0.0.1
+revision: 0.1.0
+kind: Type
+metadata:
+  name: repository
+  prefix: cap.type.git
+  displayName: Git repository
+  description: Defines Git repository
+  documentationURL: https://git-scm.com/
+  supportURL: https://git-scm.com/
+  maintainers:
+    - email: team-dev@capact.io
+      name: Capact Dev Team
+      url: https://capact.io
+
+spec:
+  jsonSchema:
+    value: |-
+      {
+        "$schema": "http://json-schema.org/draft-07/schema",
+        "type": "object",
+        "title": "The schema for Git repository",
+        "examples": [
+          {
+            "url": "https://github.com/StructsureLabs/commercial-hub-manifests.git",
+            "username": "user",
+            "password": "password"
+          }
+        ],
+        "required": [
+            "url"
+        ],
+        "properties": {
+          "url": {
+            "$id": "#/properties/url",
+            "type": "string",
+            "format": "uri",
+            "title": "URL for Git repository",
+            "description": "The currently supported protocols are `http://` and `https://`."
+          },
+          "username": {
+            "$id": "#/properties/username",
+            "type": "string",
+            "title": "Username",
+            "description": "Optional username for private Git repository authentication"
+          },
+          "password": {
+            "$id": "#/properties/password",
+            "type": "string",
+            "title": "Password",
+            "description": "Optional password or personal access token for private Git repository authentication"
+          },
+          "branchName": {
+            "$id": "#/properties/branchName",
+            "type": "string",
+            "title": "Branch name",
+            "description": "Name of default git branch"
+          },
+          "private": {
+            "$id": "#/properties/private",
+            "type": "boolean",
+            "title": "Private",
+            "description": "Specifies if a given git repository is private"
+          }
+        },
+        "additionalProperties": false
+      }

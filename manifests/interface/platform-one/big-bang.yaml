@@ -1,0 +1,15 @@
+ocfVersion: 0.0.1
+revision: 0.1.0
+kind: InterfaceGroup
+metadata:
+  prefix: cap.interface.platform-one
+  name: big-bang
+  displayName: "Platform One Big Bang"
+  description: "Big Bang is the Platform One Infrastructure as Code / Configuration as Code package that deploys a software factory in a customer owned environment."
+  documentationURL: https://p1.dso.mil/#/products/big-bang/
+  supportURL: https://p1.dso.mil/#/products/big-bang/
+  iconURL: https://p1.dso.mil/img/Big_Bang_Color_Logo_White_text.b04263b1.png
+  maintainers:
+    - email: team-dev@capact.io
+      name: Capact Dev Team
+      url: https://capact.io

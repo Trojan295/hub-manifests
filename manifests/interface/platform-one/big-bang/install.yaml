@@ -1,0 +1,40 @@
+ocfVersion: 0.0.1
+revision: 0.1.0
+kind: Interface
+metadata:
+  prefix: cap.interface.platform-one.big-bang
+  name: install
+  displayName: Install Platform One Big-Bang
+  description: Action which installs Platform One Big-Bang
+  documentationURL: https://p1.dso.mil/#/products/big-bang/
+  supportURL: https://p1.dso.mil/#/products/big-bang/
+  iconURL: https://p1.dso.mil/img/Big_Bang_Color_Logo_White_text.b04263b1.png
+  maintainers:
+    - email: team-dev@capact.io
+      name: Capact Dev Team
+      url: https://capact.io
+
+spec:
+  input:
+    parameters:
+      input-parameters:
+        typeRef:
+          path: cap.type.platform-one.big-bang.install-input
+          revision: 0.1.0
+    typeInstances:
+      kubeconfig:
+        typeRef:
+          path: cap.type.containerization.kubernetes.kubeconfig
+          revision: 0.1.0
+        verbs: [ "get" ]
+      p1-config-repo:
+        typeRef:
+          path: cap.type.git.repository
+          revision: 0.1.0
+        verbs: [ "get" ]
+  output:
+    typeInstances:
+      big-bang-config:
+        typeRef:
+          path: cap.type.platform-one.big-bang.config
+          revision: 0.1.0

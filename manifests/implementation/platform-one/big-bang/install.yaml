@@ -1,0 +1,389 @@
+ocfVersion: 0.0.1
+revision: 0.2.0
+kind: Implementation
+metadata:
+  prefix: cap.implementation.platform-one.big-bang
+  name: install
+  displayName: Install Platform One Big-Bang
+  description: Action which installs Platform One Big-Bang using Terraform
+  documentationURL: https://p1.dso.mil/#/products/big-bang/
+  supportURL: https://p1.dso.mil/#/products/big-bang/
+  iconURL: https://p1.dso.mil/img/Big_Bang_Color_Logo_White_text.b04263b1.png
+  license:
+    name: "Commercial"
+  maintainers:
+    - email: team-dev@capact.io
+      name: Capact Dev Team
+      url: https://capact.io
+
+spec:
+  appVersion: "1.11.0"
+
+  outputTypeInstanceRelations:
+    big-bang-config:
+      uses:
+        - terraform-release
+        - p1-config-repo
+
+  implements:
+    - path: cap.interface.platform-one.big-bang.install
+      revision: 0.1.0
+
+  requires:
+    cap.core.type.platform:
+      oneOf:
+        - name: kubernetes
+          revision: 0.1.0
+
+  imports:
+    - interfaceGroupPath: cap.interface.runner.terraform
+      alias: terraform
+      methods:
+        - name: apply
+          revision: 0.1.0
+    - interfaceGroupPath: cap.interface.runner.argo
+      alias: argo
+      methods:
+        - name: run
+          revision: 0.1.0
+    - interfaceGroupPath: cap.interface.templating.jinja2
+      alias: jinja2
+      methods:
+        - name: template
+          revision: 0.1.0
+
+  action:
+    runnerInterface: argo.run
+    args:
+      workflow:
+        entrypoint: big-bang-install
+        templates:
+          - name: big-bang-install
+            inputs:
+              artifacts:
+                - name: input-parameters # Entrypoint template gets the user parameters in 'input-parameters' artifacts.
+                - name: p1-config-repo
+                - name: kubeconfig
+            outputs:
+              artifacts:
+                - name: big-bang-config
+                  from: "{{steps.terraform-apply.outputs.artifacts.additional}}"
+            steps:
+              - - name: create-args
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            variables: |+
+                              kube_conf_file = "/additional"
+                              create_bigbang_ns = false
+                              registry1_username = "<@ input.registry1.username @>"
+                              registry1_password = "<@ input.registry1.password @>"
+                            command: "apply"
+                            module:
+                              name: "big-bang"
+                              <% set repoUrl = repo.url %>
+                              <% set repoUrlWithoutScheme = repoUrl | replace("http://", "") | replace("https://", "") %>
+                              # no need to check if user and password are empty, the following form for public repos is also allowed: git::https://:@github.com/capactio/capact.git
+                              source: "git::<@ 'https' if repoUrl.startswith('https://') else 'http' @>://<@ repo.username @>:<@ repo.password @>@<@ repoUrlWithoutScheme @>?ref=<@ repo.branchName @>"
+                            env: []
+                            output:
+                              goTemplate:
+                                istioGateway:
+                                  ip: "{{ .external_load_balancer_ip }}"
+                                  hostname: "{{ .external_load_balancer_hostname }}"
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.p1-config-repo}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: repo
+
+              - - name: fill-input-params
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.input-parameters}}"
+                      - name: template
+                        from: "{{steps.create-args.outputs.artifacts.render}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+              - - name: prepare-tf-kubeconfig
+                  template: prepare-kubeconfig
+                  arguments:
+                    artifacts:
+                      - name: in
+                        from: "{{inputs.artifacts.kubeconfig}}"
+
+              - - name: prepare-init-script
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            kubectl create namespace bigbang --dry-run=client -o yaml | kubectl apply -f -
+                            <% if repo.private -%>
+                            kubectl -n bigbang create secret generic environment-repo-credentials --from-literal="username=<@ repo.username @>" --from-literal="password=<@ repo.password @>" --dry-run=client -oyaml | kubectl apply -f -
+                            <%- endif %>
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.p1-config-repo}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: repo
+
+              - - name: run-init-script
+                  template: bash-exec
+                  arguments:
+                    artifacts:
+                      - name: kubeconfig
+                        from: "{{steps.prepare-tf-kubeconfig.outputs.artifacts.out}}"
+                      - name: additional
+                        from: "{{steps.prepare-init-script.outputs.artifacts.render}}"
+                    parameters:
+                      - name: script
+                        value: "cat /additional | bash"
+
+              - - name: terraform-apply
+                  capact-action: terraform.apply
+                  capact-outputTypeInstances: # Defines which artifacts are output TypeInstances
+                    - name: terraform-release
+                      from: terraform-release
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{steps.fill-input-params.outputs.artifacts.render}}"
+                      - name: runner-context
+                        from: "{{workflow.outputs.artifacts.runner-context}}"
+                      - name: additional
+                        from: "{{steps.prepare-tf-kubeconfig.outputs.artifacts.out}}"
+
+              - - name: wait-for-helm-releases
+                  template: bash-exec
+                  arguments:
+                    artifacts:
+                      - name: kubeconfig
+                        from: "{{steps.prepare-tf-kubeconfig.outputs.artifacts.out}}"
+                    parameters:
+                      - name: script
+                        value: |
+                          #!/usr/bin/env bash
+
+                          #
+                          # Source: https://repo1.dso.mil/platform-one/big-bang/bigbang/-/raw/0835f362866d4b2207a8d30647013de484e1e6d0/scripts/deploy/02_wait_for_helmreleases.sh
+                          # Changes:
+                          # - replace hardcoded name of Kustomization from "secrets" to "environment"
+                          #
+
+                          set -e
+
+                          ## This is an array to instantiate the order of wait conditions
+                          ORDERED_HELMRELEASES="gatekeeper istio-operator istio monitoring eck-operator ek fluent-bit twistlock cluster-auditor authservice argocd gitlab haproxy-sso gitlab-runner minio-operator minio anchore sonarqube mattermost-operator mattermost keycloak nexus-repository-manager"
+
+                          ## This is the actual deployed helmrelease objects in the cluster
+                          DEPLOYED_HELMRELEASES=$(kubectl get hr --no-headers -n bigbang | awk '{ print $1}')
+
+                          printf "Identified the following deployed helmreleases:\n%s" "${DEPLOYED_HELMRELEASES}"
+
+                          ## Function to test an array contains an element
+                          ## Args:
+                          ## $1: array to search
+                          ## $2: element to search for
+                          function array_contains() {
+                              local array="$1[@]"
+                              local seeking=$2
+                              local in=1
+                              for element in ${!array}; do
+                                  if [[ $element == "$seeking" ]]; then
+                                      in=0
+                                      break
+                                  fi
+                              done
+                              return $in
+                          }
+
+                          ## Function to wait on helmrelease
+                          ## Args:
+                          ## $1: package name
+                          function wait_on() {
+                            echo "Waiting on package $1"
+                            kubectl wait --for=condition=Ready --timeout 600s helmrelease -n bigbang $1;
+                          }
+
+                          ## Function to wait on all statefulsets
+                          function wait_sts() {
+                             timeElapsed=0
+                             while true; do
+                                sts=$(kubectl get sts -A -o jsonpath='{.items[*].status.replicas}' | xargs)
+                                totalSum=$(echo $sts | awk '{for (i=1; i<=NF; i++) c+=$i} {print c}')
+                                readySts=$(kubectl get sts -A -o jsonpath='{.items[*].status.readyReplicas}' | xargs)
+                                readySum=$(echo $readySts | awk '{for (i=1; i<=NF; i++) c+=$i} {print c}')
+                                if [[ $totalSum -eq $readySum ]]; then
+                                   break
+                                fi
+                                sleep 5
+                                timeElapsed=$(($timeElapsed+5))
+                                if [[ $timeElapsed -ge 600 ]]; then
+                                   echo "Timed out while waiting for stateful sets to be ready."
+                                   exit 1
+                                fi
+                             done
+                          }
+
+                          ## Function to wait on all daemonsets
+                          function wait_daemonset(){
+                             timeElapsed=0
+                             while true; do
+                                dmnset=$(kubectl get daemonset -A -o jsonpath='{.items[*].status.desiredNumberScheduled}' | xargs)
+                                totalSum=$(echo $dmnset | awk '{for (i=1; i<=NF; i++) c+=$i} {print c}')
+                                readyDmnset=$(kubectl get daemonset -A -o jsonpath='{.items[*].status.numberReady}' | xargs)
+                                readySum=$(echo $readyDmnset | awk '{for (i=1; i<=NF; i++) c+=$i} {print c}')
+                                if [[ $totalSum -eq $readySum ]]; then
+                                   break
+                                fi
+                                sleep 5
+                                timeElapsed=$(($timeElapsed+5))
+                                if [[ $timeElapsed -ge 600 ]]; then
+                                   echo "Timed out while waiting for daemon sets to be ready."
+                                   exit 1
+                                fi
+                             done
+                          }
+
+
+                          for package in $ORDERED_HELMRELEASES;
+                          do
+                            if array_contains DEPLOYED_HELMRELEASES "$package";
+                            then wait_on "$package"
+                            else echo "Expected package: $package, but not found in release. Update the array in this script if this package is no longer needed"
+                            fi
+                          done
+
+                          kubectl get helmreleases,kustomizations,gitrepositories -A
+
+                          for package in $DEPLOYED_HELMRELEASES;
+                          do
+                            if array_contains ORDERED_HELMRELEASES "$package";
+                            then echo ""
+                            else
+                              echo "Found package: $package, but not found in this script array. Update the array in this script if this package is always needed"
+                              wait_on "$package"
+                            fi
+                          done
+
+                          # Double check everything got waited on...
+                          kubectl wait --for=condition=Ready --timeout 600s helmrelease -n bigbang --all
+
+                          echo "Waiting on Secrets Kustomization"
+                          kubectl wait --for=condition=Ready --timeout 300s kustomizations.kustomize.toolkit.fluxcd.io -n bigbang environment
+
+                          # In case some helm releases are marked as ready before all objects are live...
+                          echo "Waiting on all jobs, deployments, statefulsets, and daemonsets"
+                          kubectl wait --for=condition=available --timeout 600s -A deployment --all > /dev/null
+                          wait_sts
+                          wait_daemonset
+                          if kubectl get job -A -o jsonpath='{.items[].metadata.name}' &> /dev/null; then
+                            kubectl wait --for=condition=complete --timeout 300s -A job --all > /dev/null
+                          fi
+
+              - - name: create-gf-output-vars
+                  template: bash-exec
+                  arguments:
+                    artifacts:
+                      - name: kubeconfig
+                        from: "{{steps.prepare-tf-kubeconfig.outputs.artifacts.out}}"
+                    parameters:
+                      - name: script
+                        value: |
+                          GRAFANA_HOST=$(kubectl -n monitoring get virtualservice monitoring-monitoring-kube-grafana -ojsonpath="{ .spec.hosts[0] }")
+                          GRAFANA_USERNAME=$(kubectl -n monitoring get secrets monitoring-monitoring-grafana -ojsonpath="{.data.admin-user}" | base64 -d)
+                          GRAFANA_PASSWORD=$(kubectl -n monitoring get secrets monitoring-monitoring-grafana -ojsonpath="{.data.admin-password}" | base64 -d)
+
+                          cat > /tmp/additional-output << ENDOFFILE
+                          host: "${GRAFANA_HOST}"
+                          username: "${GRAFANA_USERNAME}"
+                          password: "${GRAFANA_PASSWORD}"
+                          ENDOFFILE
+
+              - - name: fill-output-grafana
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            istioGateway:
+                              ip: "<@ terraform.istioGateway.ip @>"
+                              hostname: "<@ terraform.istioGateway.hostname @>"
+                            grafana:
+                              host: "https://<@ grafana.host @>"
+                              username: "<@ grafana.username @>"
+                              password: "<@ grafana.password @>"
+                      - name: input-parameters
+                        from: "{{steps.create-gf-output-vars.outputs.artifacts.additional}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: grafana
+
+              - - name: fill-output-terraform
+                  capact-action: jinja2.template
+                  capact-outputTypeInstances: # Defines which artifacts are output TypeInstances
+                    - name: big-bang-config
+                      from: render
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.fill-output-grafana.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{steps.terraform-apply.outputs.artifacts.additional}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: terraform
+
+          - name: prepare-kubeconfig
+            inputs:
+              artifacts:
+                - name: in
+                  path: /file
+            container:
+              image: ghcr.io/capactio/yq:4 # Original image: mikefarah/yq:4
+              command: ["sh", "-c"]
+              args: ["sleep 1 && yq eval '.config' -i /file"]
+            outputs:
+              artifacts:
+                - name: out
+                  path: /file
+
+          - name: bash-exec
+            inputs:
+              parameters:
+                - name: script
+              artifacts:
+                - name: kubeconfig
+                  path: /kubeconfig
+                - name: additional
+                  path: /additional
+                  optional: true
+            outputs:
+              artifacts:
+                - name: additional
+                  path: /tmp/additional-output
+                  optional: true
+            container:
+              image: bitnami/kubectl:1.19
+              command: [ bash ]
+              env:
+                - name: KUBECONFIG
+                  value: "{{inputs.artifacts.kubeconfig.path}}"
+              args:
+                - "-c"
+                - "{{inputs.parameters.script}}"
