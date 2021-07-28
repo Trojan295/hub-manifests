@@ -286,6 +286,19 @@ spec:
                       - name: script
                         from: "{{steps.aws-params-in-kc-script.outputs.artifacts.render}}"
 
+              - - name: prepare-kubeconfig
+                  template: prepare-kubeconfig
+                  arguments:
+                    artifacts:
+                      - name: in
+                        from: "{{steps.render-kubeconfig.outputs.artifacts.kubeconfig}}"
+              - - name: apply-patches
+                  template: apply-patches
+                  arguments:
+                    artifacts:
+                      - name: kubeconfig
+                        from: "{{steps.prepare-kubeconfig.outputs.artifacts.out}}"
+
               - - name: render-cluster
                   capact-outputTypeInstances:
                     - name: cluster
@@ -357,3 +370,49 @@ spec:
               image: amazon/aws-cli:2.2.20
               command: [sh]
               args: ["/in/script.sh"]
+
+          - name: apply-patches
+            inputs:
+              artifacts:
+                - name: kubeconfig
+                  path: "/in/kubeconfig"
+            script:
+              image: bitnami/kubectl:1.18
+              command: [ bash ]
+              source: |
+                # Copied from https://repo1.dso.mil/platform-one/big-bang/bigbang/-/raw/master/.gitlab-ci/jobs/rke2/dependencies/k8s-resources/aws/default-ebs-sc.yaml
+                cat <<EOF > /tmp/sc.yaml
+                apiVersion: storage.k8s.io/v1
+                kind: StorageClass
+                metadata:
+                  name: ebs
+                  annotations:
+                    storageclass.kubernetes.io/is-default-class: "true"
+                provisioner: kubernetes.io/aws-ebs
+                parameters:
+                  type: gp2
+                reclaimPolicy: Delete
+                allowVolumeExpansion: true
+                mountOptions:
+                  - debug
+                volumeBindingMode: WaitForFirstConsumer
+                EOF
+
+                kubectl --kubeconfig /in/kubeconfig apply -f /tmp/sc.yaml
+                kubectl --kubeconfig /in/kubeconfig patch psp global-unrestricted-psp  -p '{"metadata": { "annotations": { "seccomp.security.alpha.kubernetes.io/allowedProfileNames": "*" } } }'
+                kubectl --kubeconfig /in/kubeconfig patch psp system-unrestricted-psp  -p '{ "metadata": { "annotations": { "seccomp.security.alpha.kubernetes.io/allowedProfileNames": "*" } } }'
+                kubectl --kubeconfig /in/kubeconfig patch psp global-restricted-psp  -p '{ "metadata": { "annotations": { "seccomp.security.alpha.kubernetes.io/allowedProfileNames": "*" } } }'
+
+          - name: prepare-kubeconfig
+            inputs:
+              artifacts:
+                - name: in
+                  path: /file
+            container:
+              image: ghcr.io/capactio/yq:4 # Original image: mikefarah/yq:4
+              command: ["sh", "-c"]
+              args: ["sleep 1 && yq eval '.config' -i /file"]
+            outputs:
+              artifacts:
+                - name: out
+                  path: /file
