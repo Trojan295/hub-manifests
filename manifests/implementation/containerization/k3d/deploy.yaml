@@ -1,0 +1,339 @@
+ocfVersion: 0.0.1
+revision: 0.1.0
+kind: Implementation
+metadata:
+  prefix: cap.implementation.containerization.k3d
+  name: deploy
+  displayName: "Deploy"
+  description: "k3d deploy action"
+  documentationURL: https://k3d.io/
+  supportURL: https://k3d.io/
+  license:
+    name: "Apache 2.0"
+  maintainers:
+    - email: team-dev@capact.io
+      name: Capact Dev Team
+      url: https://capact.io
+
+spec:
+  appVersion: "4.4.x"
+  additionalInput:
+    parameters:
+      typeRef:
+        path: cap.type.containerization.k3d.deploy-input
+        revision: 0.1.0
+
+  outputTypeInstanceRelations:
+    kubeconfig: {}
+    cluster:
+      uses:
+        - kubeconfig
+
+  implements:
+    - path: cap.interface.containerization.kubernetes.deploy
+      revision: 0.1.0
+
+  imports:
+    - interfaceGroupPath: cap.interface.runner.argo
+      alias: argo
+      methods:
+        - name: run
+          revision: 0.1.0
+    - interfaceGroupPath: cap.interface.templating.jinja2
+      alias: jinja2
+      methods:
+        - name: template
+          revision: 0.1.0
+
+  action:
+    runnerInterface: argo.run
+    args:
+      workflow:
+        entrypoint: k3d-configure
+        templates:
+          - name: k3d-configure
+            inputs:
+              artifacts:
+                - name: input-parameters
+                - name: additional-parameters
+                  optional: true
+            outputs:
+              artifacts:
+                - name: cluster
+                  from: "{{steps.render-cluster-details.outputs.artifacts.render}}"
+                - name: kubeconfig
+                  from: "{{steps.convert-kubeconfing-to-ti.outputs.artifacts.kubeconfig}}"
+            steps:
+              - - name: render-default-input-values
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            apiVersion: k3d.io/v1alpha2 # this will change in the future as we make everything more stable
+                            kind: Simple # internally, we also have a Cluster config, which is not yet available externally
+                            name: <@ input.name @>
+                            servers: <@ input.controlPlanes | default(1) @>
+                            agents: <@ input.workers | default(0) @>
+                            version: <@ input.version | default("v1.20.9") @>
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.input-parameters}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+              - - name: render-create-network-script
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            #!/bin/sh
+                            docker network create k3d-<@ input.name @>
+                            sleep 1
+                            touch /tmp/output
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.input-parameters}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+              - - name: create-network
+                  template: docker-command
+                  arguments:
+                    artifacts:
+                      - name: script
+                        from: "{{steps.render-create-network-script.outputs.artifacts.render}}"
+
+              - - name: render-get-ip-script
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            #!/bin/sh
+                            echo "ip: `docker network inspect k3d-<@ input.name @> --format '{{ index .IPAM.Config 0 \"Gateway\" }}'`" >/tmp/output
+                            sleep 1
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.input-parameters}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+              - - name: get-gateway-ip
+                  template: docker-command
+                  arguments:
+                    artifacts:
+                      - name: script
+                        from: "{{steps.render-get-ip-script.outputs.artifacts.render}}"
+
+              - - name: render-additional-input
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            # See https://k3d.io/usage/configfile/#all-options-example
+                            apiVersion: k3d.io/v1alpha2
+                            kind: Simple
+                            name: <@ input.name @>
+                            servers: <@ input.servers @>
+                            agents: <@ input.agents @>
+                            image: rancher/k3s:<@ input.version @>-k3s1
+                            network: k3d-<@ input.name @>
+                            kubeAPI: # same as `--api-port myhost.my.domain:6445` (where the name would resolve to 127.0.0.1)
+                              hostIP: <@ gateway.ip @>
+                              hostPort: "<@ random_string('123456789', 4) @>"
+                            volumes: # repeatable flags are represented as YAML lists
+                              <@ additionalinput.volumes | default([]) @>
+                            ports:
+                              <@ additionalinput.ports | default([]) @>
+                            labels:
+                              <@ additionalinput.labels | default([]) @>
+                            env:
+                              <@ additionalinput.env| default([]) @>
+                            registries: # define how registries should be created or used
+                              <% if additionalinput.registriesConfig | length > 0 %>
+                              config: |
+                                <@ additionalinput.registriesConfig @>
+                              <% else %>
+                              {}
+                              <% endif %>
+                            options:
+                              k3d: # k3d runtime settings
+                                <@ additionalinput.k3dOptions | default({}) @>
+                              k3s: # options passed on to K3s itself
+                                extraServerArgs: # additional arguments passed to the `k3s server` command; same as `--k3s-server-arg`
+                                  <@ additionalinput.k3sExtraServerArgs | default([]) @>
+                                extraAgentArgs: # addditional arguments passed to the `k3s agent` command; same as `--k3s-agent-arg`
+                                  <@ additionalinput.k3sExtraAgentArgs | default([]) @>
+                              runtime: # runtime (docker) specific options
+                                <@ additionalinput.runtime | default({}) @>
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.additional-parameters}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: additionalinput
+
+              - - name: render-gateway
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.render-additional-input.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{steps.get-gateway-ip.outputs.artifacts.output}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: gateway
+
+              - - name: render-input
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.render-gateway.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{steps.render-default-input-values.outputs.artifacts.render}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+              - - name: deploy-k3d
+                  template: k3d-deploy
+                  arguments:
+                    artifacts:
+                      - name: config
+                        from: "{{steps.render-input.outputs.artifacts.render}}"
+
+              - - name: render-convert-kubeconfig
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            #!/bin/sh
+                            set -x
+                            yq eval --null-input "{\"config\": \"`cat /tmp/kubeconfig`\"}" > /tmp/ti-kubeconfig.yaml
+                            sleep 1
+                      - name: input-parameters
+                        from: "{{steps.get-gateway-ip.outputs.artifacts.output}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: gateway
+
+              - - name: convert-kubeconfing-to-ti
+                  template: convert-kubeconfig
+                  capact-outputTypeInstances:
+                    - name: kubeconfig
+                      from: kubeconfig
+                  arguments:
+                    artifacts:
+                      - name: script
+                        from: "{{steps.render-convert-kubeconfig.outputs.artifacts.render}}"
+                      - name: kubeconfig
+                        from: "{{steps.deploy-k3d.outputs.artifacts.kubeconfig}}"
+
+              - - name: render-cluster-fill-apiurl
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            name: <@ input.name @>
+                            type: k3d
+                            version: <@ input.version @>
+                            apiServerUrl: <@ kubeconfig.clusters[0].cluster.server @>
+                      - name: input-parameters
+                        from: "{{steps.deploy-k3d.outputs.artifacts.kubeconfig}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: kubeconfig
+
+              - - name: render-cluster-details
+                  capact-action: jinja2.template
+                  capact-outputTypeInstances: # Defines which artifacts are output TypeInstances
+                    - name: cluster
+                      from: render
+                  arguments:
+                    artifacts:
+                      - name: template
+                        from: "{{steps.render-cluster-fill-apiurl.outputs.artifacts.render}}"
+                      - name: input-parameters
+                        from: "{{steps.render-default-input-values.outputs.artifacts.render}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+          - name: k3d-deploy
+            inputs:
+              artifacts:
+              - name: config
+                path: /tmp/k3d.yaml
+            outputs:
+              artifacts:
+              - name: kubeconfig
+                path: /.kube/config
+            volumes:
+            - name: dockersock
+              hostPath:
+                path: /var/run/docker.sock
+              type: Socket
+            container:
+              image: rancher/k3d:v4.4.7
+              command: [k3d, cluster, create, --config, "/tmp/k3d.yaml"]
+              volumeMounts:
+              - mountPath: /var/run/docker.sock
+                name: dockersock
+
+          - name: docker-command
+            inputs:
+              artifacts:
+              - name: script
+                path: /tmp/script.sh
+            outputs:
+              artifacts:
+              - name: output
+                path: /tmp/output
+            volumes:
+            - name: dockersock
+              hostPath:
+                path: /var/run/docker.sock
+              type: Socket
+            container:
+              image: docker
+              command: [sh, /tmp/script.sh]
+              volumeMounts:
+              - mountPath: /var/run/docker.sock
+                name: dockersock
+
+          - name: convert-kubeconfig
+            inputs:
+              artifacts:
+              - name: script
+                path: /tmp/convert-kubeconfig.sh
+              - name: kubeconfig
+                path: /tmp/kubeconfig
+                mode: 0666
+            outputs:
+              artifacts:
+              - name: kubeconfig
+                path: /tmp/ti-kubeconfig.yaml
+            container:
+              image: mikefarah/yq
+              command: [sh, /tmp/convert-kubeconfig.sh]

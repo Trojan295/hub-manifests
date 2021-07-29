@@ -1,0 +1,105 @@
+ocfVersion: 0.0.1
+revision: 0.1.0
+kind: Type
+metadata:
+  name: deploy-input
+  prefix: cap.type.containerization.k3d
+  displayName: k3d deployment input
+  description: Defines input for the k3d cluster deployment
+  documentationURL: https://capact.io
+  supportURL: https://capact.io
+  maintainers:
+    - email: team-dev@capact.io
+      name: Capact Dev Team
+      url: https://capact.io
+spec:
+  jsonSchema:
+    value: |-
+      {
+        "$schema": "http://json-schema.org/draft-07/schema",
+        "type": "object",
+        "required": [],
+        "properties": {
+          "volumes": {
+            "$id": "#/properties/volumes",
+            "type": "array",
+            "description": "Mount volumes into the nodes",
+            "default": [],
+            "additionalItems": true,
+            "items": {
+              "$id": "#/properties/volumes/items"
+            },
+          },
+          "ports": {
+            "$id": "#/properties/ports",
+            "type": "array",
+            "description": "Map ports from the node containers to the host",
+            "default": [],
+            "additionalItems": true,
+            "items": {
+              "$id": "#/properties/ports/items"
+            },
+          },
+          "labels": {
+            "$id": "#/properties/labels",
+            "type": "array",
+            "description": "Label added to node container",
+            "default": [],
+            "additionalItems": true,
+            "items": {
+              "$id": "#/properties/labels/items"
+            },
+          },
+          "env": {
+            "$id": "#/properties/env",
+            "type": "array",
+            "description": "Environment variables added to nodes",
+            "default": [],
+            "additionalItems": true,
+            "items": {
+              "$id": "#/properties/env/items"
+            },
+          },
+          "registriesConfig": {
+            "$id": "#/properties/registriesConfig",
+            "type": "string",
+            "description": "Contents of the `registries.yaml` file",
+            "default": "",
+            "additionalProperties": false
+          },
+          "k3dOptions": {
+            "$id": "#/properties/k3dOptions",
+            "type": "object",
+            "description": "k3d runtime settings",
+            "default": {},
+            "additionalProperties": false
+          },
+          "k3sExtraServerArgs": {
+            "$id": "#/properties/k3sExtraServerArgs",
+            "type": "array",
+            "description": "Options passed on to K3s servers",
+            "default": [],
+            "additionalItems": true,
+            "items": {
+              "$id": "#/properties/k3sExtraServerArgs/items"
+            },
+          },
+          "k3sExtraAgentArgs": {
+            "$id": "#/properties/k3sExtraAgentArgs",
+            "type": "array",
+            "description": "Options passed on to K3s agents",
+            "default": [],
+            "additionalItems": true,
+            "items": {
+              "$id": "#/properties/k3sExtraAgentArgs/items"
+            },
+          },
+          "runtime": {
+            "$id": "#/properties/runtime",
+            "type": "object",
+            "description": "Runtime (docker) specific options",
+            "default": {},
+            "additionalProperties": false
+          }
+        }
+      }

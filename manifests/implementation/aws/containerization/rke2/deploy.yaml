@@ -20,7 +20,7 @@ spec:
   additionalInput:
     parameters:
       typeRef:
-        path: cap.type.containerization.rke2.deploy-input
+        path: cap.type.aws.containerization.rke2.deploy-input
         revision: 0.1.0
 
   additionalOutput:
