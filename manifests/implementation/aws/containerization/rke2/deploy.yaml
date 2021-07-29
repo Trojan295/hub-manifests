@@ -395,7 +395,7 @@ spec:
                 allowVolumeExpansion: true
                 mountOptions:
                   - debug
-                volumeBindingMode: WaitForFirstConsumer
+                volumeBindingMode: Immediate
                 EOF
 
                 kubectl --kubeconfig /in/kubeconfig apply -f /tmp/sc.yaml

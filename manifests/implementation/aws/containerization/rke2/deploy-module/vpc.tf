@@ -1,7 +1,7 @@
 module "vpc" {
   source = "git::https://repo1.dso.mil/platform-one/big-bang/customers/template.git//terraform/modules/vpc?ref=1.1.1"
 
-  name       = "${local.name}-vpc"
+  name       = local.name
   aws_region = var.aws_region
   vpc_cidr   = var.vpc_cidr
 
