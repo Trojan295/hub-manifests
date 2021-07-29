@@ -1,0 +1,717 @@
+ocfVersion: 0.0.1
+revision: 0.2.0
+kind: Implementation
+metadata:
+  prefix: cap.implementation.platform-one.big-bang
+  name: provision
+  displayName: Provision Big-Bang cluster.
+  description: Action which creates the target Kubernetes cluster and installs Big-Bang on it.
+  documentationURL: https://p1.dso.mil/#/products/big-bang/
+  supportURL: https://p1.dso.mil/#/products/big-bang/
+  iconURL: https://p1.dso.mil/img/Big_Bang_Color_Logo_White_text.b04263b1.png
+  license:
+    name: "Commercial"
+  maintainers:
+    - email: team-dev@capact.io
+      name: Capact Dev Team
+      url: https://capact.io
+
+spec:
+  appVersion: "1.11.0"
+
+  outputTypeInstanceRelations: {}
+
+  implements:
+    - path: cap.interface.platform-one.big-bang.provision
+      revision: 0.1.0
+
+  requires:
+    cap.core.type.platform:
+      oneOf:
+        - name: kubernetes
+          revision: 0.1.0
+
+  imports:
+    - interfaceGroupPath: cap.interface.runner.argo
+      alias: argo
+      methods:
+        - name: run
+          revision: 0.1.0
+    - interfaceGroupPath: cap.interface.templating.jinja2
+      alias: jinja2
+      methods:
+        - name: template
+          revision: 0.1.0
+    - interfaceGroupPath: cap.interface.containerization.kubernetes
+      alias: k8s
+      methods:
+        - name: deploy
+          revision: 0.1.0
+    - interfaceGroupPath: cap.interface.platform-one.big-bang
+      alias: bigbang
+      methods:
+        - name: install
+          revision: 0.1.0
+  action:
+    runnerInterface: argo.run
+    args:
+      workflow:
+        entrypoint: big-bang-install
+        templates:
+          - name: big-bang-install
+            inputs:
+              artifacts:
+                - name: input-parameters # Entrypoint template gets the user parameters in 'input-parameters' artifacts.
+                - name: p1-config-repo
+                - name: kubeconfig
+                  optional: true
+            steps:
+              - - name: render-start-yaml
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            <% set namespace = "bigbang" %>
+                            apiVersion: source.toolkit.fluxcd.io/v1beta1
+                            kind: GitRepository
+                            metadata:
+                              name: environment-repo
+                              namespace: <@ namespace @>
+                            spec:
+                              interval: 1m
+                              url: <@ repo.url @>
+                              ref:
+                                branch: <@ repo.branchName @>
+                              <% if repo.private %>
+                              secretRef:
+                                name: environment-repo-credentials
+                              <% endif %>
+                            ---
+                            apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+                            kind: Kustomization
+                            metadata:
+                              name: environment
+                              namespace: <@ namespace @>
+                            spec:
+                              interval: 1m
+                              sourceRef:
+                                kind: GitRepository
+                                name: environment-repo
+                              path: ./bigbang
+                              prune: true
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.p1-config-repo}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: repo
+
+                - name: render-kustomization-yaml
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            <% set namespace = "bigbang" %>
+                            bases:
+                              - git::https://repo1.dso.mil/platform-one/big-bang/umbrella.git/base?ref=1.11.0
+
+                            configMapGenerator:
+                              - name: common
+                                namespace: <@ namespace @>
+                                behavior: merge
+                                files:
+                                  - values.yaml
+
+                            patchesStrategicMerge:
+                            - |-
+                              apiVersion: source.toolkit.fluxcd.io/v1beta1
+                              kind: GitRepository
+                              metadata:
+                                name: bigbang
+                                namespace: <@ namespace @>
+                              spec:
+                                ref:
+                                  $patch: replace
+                                  branch: release-1.11.x
+                                  commit: ac3d07ac0a5206b74478f6e41c58afa99363fa00
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.input-parameters}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+                - name: render-values-yaml
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            hostname: <@ input.bigbangValues.hostname | default('"bigbang.dev"') @>
+                            offline: <@ input.bigbangValues.offline | default(false) | tojson @>
+                            <% if input.bigbangValues.registryCredentials %>
+                            registryCredentials:
+                              registry: <@ input.bigbangValues.registryCredentials.registry | default('"registry1.dso.mil"') @>
+                              username: <@ input.bigbangValues.registryCredentials.username | default('""') @>
+                              password: <@ input.bigbangValues.registryCredentials.password | default('""') @>
+                              email: <@ input.bigbangValues.registryCredentials.email | default('""') @>
+                            <% endif %>
+                            openshift: <@ input.bigbangValues.openshift | default(false) | tojson @>
+                            git:
+                              existingSecret: <@ input.bigbangValues.git.existingSecret | default('""') @>
+                              credentials:
+                                username: <@ input.bigbangValues.git.credentials.username | default('""') @>
+                                password: <@ input.bigbangValues.git.credentials.password | default('""') @>
+                                privateKey: <@ input.bigbangValues.git.credentials.privateKey | default('""') @>
+                                publicKey: <@ input.bigbangValues.git.credentials.publicKey | default('""') @>
+                                knownHosts: <@ input.bigbangValues.git.credentials.knownHosts | default('""') @>
+                            sso:
+                              oidc:
+                                host: <@ input.bigbangValues.sso.oidc.host | default('"login.dso.mil"') @>
+                                realm: <@ input.bigbangValues.sso.oidc.realm | default('"baby-yoda"') @>
+                              certificate_authority: <@ input.bigbangValues.sso.certificate_authority | default('""') @>
+                              jwks: <@ input.bigbangValues.sso.jwks | default('""') @>
+                              client_id: <@ input.bigbangValues.sso.client_id | default('""') @>
+                              client_secret: <@ input.bigbangValues.sso.client_secret | default('""') @>
+                              token_url: <@ input.bigbangValues.sso.token_url | default('"https://{{ .Values.sso.oidc.host }}/auth/realms/{{ .Values.sso.oidc.realm }}/protocol/openid-connect/token"') @>
+                              auth_url: <@ input.bigbangValues.sso.auth_url | default('"https://{{ .Values.sso.oidc.host }}/auth/realms/{{ .Values.sso.oidc.realm }}/protocol/openid-connect/auth"') @>
+                            flux:
+                              timeout: <@ input.bigbangValues.flux.timeout | default('"10m"') @>
+                              interval: <@ input.bigbangValues.flux.interval | default('"2m"') @>
+                              test:
+                                enable: <@ input.bigbangValues.flux.test.enable | default(false) | tojson @>
+                              install:
+                                remediation:
+                                  retries: <@ input.bigbangValues.flux.install.remediation.retries | default(3) @>
+                              upgrade:
+                                remediation:
+                                  retries: <@ input.bigbangValues.flux.upgrade.remediation.retries | default(3) @>
+                                  remediateLastFailure: <@ input.bigbangValues.flux.upgrade.remediation.remediateLastFailure | default(true) | tojson @>
+                                cleanupOnFail: <@ input.bigbangValues.flux.upgrade.cleanupOnFail | default(true) | tojson @>
+                              rollback:
+                                timeout: <@ input.bigbangValues.flux.rollback.timeout | default('"10m"') @>
+                                cleanupOnFail: <@ input.bigbangValues.flux.rollback.cleanupOnFail | default(true) | tojson @>
+                            networkPolicies:
+                              enabled: <@ input.bigbangValues.networkPolicies.enabled | default(true) | tojson @>
+                              controlPlaneCidr: <@ input.bigbangValues.networkPolicies.controlPlaneCidr | default('"0.0.0.0/0"') @>
+                            istio:
+                              enabled: <@ input.bigbangValues.istio.enabled | default(true) | tojson @>
+                              git:
+                                repo: <@ input.bigbangValues.istio.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/core/istio-controlplane.git"') @>
+                                path: <@ input.bigbangValues.istio.git.path | default('"./chart"') @>
+                                tag: <@ input.bigbangValues.istio.git.tag | default('"1.8.4-bb.2"') @>
+                              flux: <@ input.bigbangValues.istio.flux | default({}) @>
+                              <% if input.bigbangValues.istio.ingress %>
+                              ingress:
+                                key: |
+                                  <@ bigbangValues.istio.ingress.key | indent(6) @>
+                                cert: |
+                                  <@ input.bigbangValues.istio.ingress.cert | indent(6) @>
+                              <% endif %>
+                              values: <@ input.bigbangValues.istio.values | default({}) @>
+                              postRenderers: <@ input.bigbangValues.istio.postRenderers | default([]) @>
+                            istiooperator:
+                              enabled: <@ input.bigbangValues.istiooperator.enabled | default(true) | tojson @>
+                              git:
+                                repo: <@ input.bigbangValues.istiooperator.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/core/istio-operator.git"') @>
+                                path: <@ input.bigbangValues.istiooperator.git.path | default('"./chart"') @>
+                                tag: <@ input.bigbangValues.istiooperator.git.tag | default('"1.8.4-bb.1"') @>
+                              flux: <@ input.bigbangValues.istiooperator.flux | default({}) @>
+                              values: <@ input.bigbangValues.istiooperator.values | default({}) @>
+                              postRenderers: <@ input.bigbangValues.istiooperator.postRenderers | default([]) @>
+                            jaeger:
+                              enabled: <@ input.bigbangValues.jaeger.enabled | default(true) | tojson @>
+                              git:
+                                repo: <@ input.bigbangValues.jaeger.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/core/jaeger.git"') @>
+                                path: <@ input.bigbangValues.jaeger.git.path | default('"./chart"') @>
+                                tag: <@ input.bigbangValues.jaeger.git.tag | default('"2.21.4-bb.2"') @>
+                              flux: <@ input.bigbangValues.jaeger.flux | default({}) @>
+                              sso:
+                                enabled: <@ input.bigbangValues.jaeger.sso.enabled | default(false) | tojson @>
+                                client_id: <@ input.bigbangValues.jaeger.sso.client_id | default('""') @>
+                                client_secret: <@ input.bigbangValues.jaeger.sso.client_secret | default('""') @>
+                              values: <@ input.bigbangValues.jaeger.values | default({}) @>
+                              postRenderers: <@ input.bigbangValues.jaeger.postRenderers | default([]) @>
+                            kiali:
+                              enabled: <@ input.bigbangValues.kiali.enabled | default(true) | tojson @>
+                              git:
+                                repo: <@ input.bigbangValues.kiali.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/core/kiali.git"') @>
+                                path: <@ input.bigbangValues.kiali.git.path | default('"./chart"') @>
+                                tag: <@ input.bigbangValues.kiali.git.tag | default('"1.32.0-bb.2"') @>
+                              flux: <@ input.bigbangValues.kiali.flux | default({}) @>
+                              sso:
+                                enabled: <@ input.bigbangValues.kiali.sso.enabled | default(false) | tojson @>
+                                client_id: <@ input.bigbangValues.kiali.sso.client_id | default('""') @>
+                                client_secret: <@ input.bigbangValues.kiali.sso.client_secret | default('""') @>
+                              values: <@ input.bigbangValues.kiali.values | default({}) @>
+                              postRenderers: <@ input.bigbangValues.kiali.postRenderers | default([]) @>
+                            clusterAuditor:
+                              enabled: <@ input.bigbangValues.clusterAuditor.enabled | default(true) | tojson @>
+                              git:
+                                repo: <@ input.bigbangValues.clusterAuditor.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/core/cluster-auditor.git"') @>
+                                path: <@ input.bigbangValues.clusterAuditor.git.path | default('"./chart"') @>
+                                tag: <@ input.bigbangValues.clusterAuditor.git.tag | default('"0.3.0-bb.1"') @>
+                              flux: <@ input.bigbangValues.clusterAuditor.flux | default({}) @>
+                              values: <@ input.bigbangValues.clusterAuditor.values | default({}) @>
+                              postRenderers: <@ input.bigbangValues.clusterAuditor.postRenderers | default([]) @>
+                            gatekeeper:
+                              enabled: <@ input.bigbangValues.gatekeeper.enabled | default(true) | tojson @>
+                              git:
+                                repo: <@ input.bigbangValues.gatekeeper.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/core/policy.git"') @>
+                                path: <@ input.bigbangValues.gatekeeper.git.path | default('"./chart"') @>
+                                tag: <@ input.bigbangValues.gatekeeper.git.tag | default('"3.4.0-bb.4"') @>
+                              flux: <@ input.bigbangValues.gatekeeper.flux | default({}) @>
+                              values: <@ input.bigbangValues.gatekeeper.values | default({}) @>
+                              postRenderers: <@ input.bigbangValues.gatekeeper.postRenderers | default([]) @>
+                            logging:
+                              enabled: <@ input.bigbangValues.logging.enabled | default(true) | tojson @>
+                              git:
+                                repo: <@ input.bigbangValues.logging.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/core/elasticsearch-kibana.git"') @>
+                                path: <@ input.bigbangValues.logging.git.path | default('"./chart"') @>
+                                tag: <@ input.bigbangValues.logging.git.tag | default('"0.1.15-bb.0"') @>
+                              flux:
+                                timeout: <@ input.bigbangValues.logging.flux.timeout | default('"20m"') @>
+                              sso:
+                                enabled: <@ input.bigbangValues.logging.sso.enabled | default(false) | tojson @>
+                                client_id: <@ input.bigbangValues.logging.sso.client_id | default('""') @>
+                                client_secret: <@ input.bigbangValues.logging.sso.client_secret | default('""') @>
+                              license:
+                                trial: <@ input.bigbangValues.logging.license.trial | default(false) | tojson @>
+                                keyJSON: <@ input.bigbangValues.logging.license.keyJSON | default('""') @>
+                              values: <@ input.bigbangValues.logging.values | default({}) @>
+                              postRenderers: <@ input.bigbangValues.logging.postRenderers | default([]) @>
+                            eckoperator:
+                              enabled: <@ input.bigbangValues.eckoperator.enabled | default(true) | tojson @>
+                              git:
+                                repo: <@ input.bigbangValues.eckoperator.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/core/eck-operator.git"') @>
+                                path: <@ input.bigbangValues.eckoperator.git.path | default('"./chart"') @>
+                                tag: <@ input.bigbangValues.eckoperator.git.tag | default('"1.6.0-bb.0"') @>
+                              flux: <@ input.bigbangValues.eckoperator.flux | default({}) @>
+                              values: <@ input.bigbangValues.eckoperator.values | default({}) @>
+                            fluentbit:
+                              enabled: <@ input.bigbangValues.fluentbit.enabled | default(true) | tojson @>
+                              git:
+                                repo: <@ input.bigbangValues.fluentbit.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/core/fluentbit.git"') @>
+                                path: <@ input.bigbangValues.fluentbit.git.path | default('"./chart"') @>
+                                tag: <@ input.bigbangValues.fluentbit.git.tag | default('"0.15.14-bb.0"') @>
+                              flux: <@ input.bigbangValues.fluentbit.flux | default({}) @>
+                              values: <@ input.bigbangValues.fluentbit.values | default({}) @>
+                              postRenderers: <@ input.bigbangValues.fluentbit.postRenderers | default([]) @>
+                            monitoring:
+                              enabled: <@ input.bigbangValues.monitoring.enabled | default(true) | tojson @>
+                              git:
+                                repo: <@ input.bigbangValues.monitoring.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/core/monitoring.git"') @>
+                                path: <@ input.bigbangValues.monitoring.git.path | default('"./chart"') @>
+                                tag: <@ input.bigbangValues.monitoring.git.tag | default('"11.0.0-bb.24"') @>
+                              flux: <@ input.bigbangValues.monitoring.flux | default({}) @>
+                              sso:
+                                enabled: <@ input.bigbangValues.monitoring.sso.enabled | default(false) | tojson @>
+                                prometheus:
+                                  client_id: <@ input.bigbangValues.monitoring.sso.prometheus.client_id | default('""') @>
+                                  client_secret: <@ input.bigbangValues.monitoring.sso.prometheus.client_secret | default('""') @>
+                                alertmanager:
+                                  client_id: <@ input.bigbangValues.monitoring.sso.alertmanager.client_id | default('""') @>
+                                  client_secret: <@ input.bigbangValues.monitoring.sso.alertmanager.client_secret | default('""') @>
+                                grafana:
+                                  client_id: <@ input.bigbangValues.monitoring.sso.grafana.client_id | default('""') @>
+                                  client_secret: <@ input.bigbangValues.monitoring.sso.grafana.client_secret | default('""') @>
+                                  scopes: <@ input.bigbangValues.monitoring.sso.grafana.scopes | default('""') @>
+                                  allow_sign_up: <@ input.bigbangValues.monitoring.sso.grafana.allow_sign_up | default(true) | tojson @>
+                                  role_attribute_path: <@ input.bigbangValues.monitoring.sso.grafana.role_attribute_path | default('"Viewer"') @>
+                              values: <@ input.bigbangValues.monitoring.values | default({}) @>
+                              postRenderers: <@ input.bigbangValues.monitoring.postRenderers | default([]) @>
+                            twistlock:
+                              enabled: <@ input.bigbangValues.twistlock.enabled | default(true) | tojson @>
+                              git:
+                                repo: <@ input.bigbangValues.twistlock.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/security-tools/twistlock.git"') @>
+                                path: <@ input.bigbangValues.twistlock.git.path | default('"./chart"') @>
+                                tag: <@ input.bigbangValues.twistlock.git.tag | default('"0.0.6-bb.0"') @>
+                              flux: <@ input.bigbangValues.twistlock.flux | default({}) @>
+                              values: <@ input.bigbangValues.twistlock.values | default({}) @>
+                              postRenderers: <@ input.bigbangValues.twistlock.postRenderers | default([]) @>
+                            addons:
+                              argocd:
+                                enabled: <@ input.bigbangValues.addons.argocd.enabled | default(false) | tojson @>
+                                git:
+                                  repo: <@ input.bigbangValues.addons.argocd.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/core/argocd.git"') @>
+                                  path: <@ input.bigbangValues.addons.argocd.git.path | default('"./chart"') @>
+                                  tag: <@ input.bigbangValues.addons.argocd.git.tag | default('"3.6.8-bb.0"') @>
+                                flux: <@ input.bigbangValues.addons.argocd.flux | default({}) @>
+                                sso:
+                                  enabled: <@ input.bigbangValues.addons.argocd.sso.enabled | default(false) | tojson @>
+                                  client_id: <@ input.bigbangValues.addons.argocd.sso.client_id | default('""') @>
+                                  client_secret: <@ input.bigbangValues.addons.argocd.sso.client_secret | default('""') @>
+                                  provider_name: <@ input.bigbangValues.addons.argocd.sso.provider_name | default('""') @>
+                                  groups: <@ input.bigbangValues.addons.argocd.sso.groups | default(" |\n        g, Impact Level 2 Authorized, role:admin\n") @>
+                                values: <@ input.bigbangValues.addons.argocd.values | default({}) @>
+                                postRenderers: <@ input.bigbangValues.addons.argocd.postRenderers | default([]) @>
+                              authservice:
+                                enabled: <@ input.bigbangValues.addons.authservice.enabled | default(false) | tojson @>
+                                git:
+                                  repo: <@ input.bigbangValues.addons.authservice.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/core/authservice.git"') @>
+                                  path: <@ input.bigbangValues.addons.authservice.git.path | default('"./chart"') @>
+                                  tag: <@ input.bigbangValues.addons.authservice.git.tag | default('"0.4.0-bb.8"') @>
+                                flux: <@ input.bigbangValues.addons.authservice.flux | default({}) @>
+                                values: <@ input.bigbangValues.addons.authservice.values | default({}) @>
+                                postRenderers: <@ input.bigbangValues.addons.authservice.postRenderers | default([]) @>
+                                chains: <@ input.bigbangValues.addons.authservice.chains | default({}) @>
+                              minioOperator:
+                                enabled: <@ input.bigbangValues.addons.minioOperator.enabled | default(false) | tojson @>
+                                git:
+                                  repo: <@ input.bigbangValues.addons.minioOperator.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/application-utilities/minio-operator.git"') @>
+                                  path: <@ input.bigbangValues.addons.minioOperator.git.path | default('"./chart"') @>
+                                  tag: <@ input.bigbangValues.addons.minioOperator.git.tag | default('"2.0.9-bb.3"') @>
+                                flux: <@ input.bigbangValues.addons.minioOperator.flux | default({}) @>
+                                values: <@ input.bigbangValues.addons.minioOperator.values | default({}) @>
+                                postRenderers: <@ input.bigbangValues.addons.minioOperator.postRenderers | default([]) @>
+                              minio:
+                                enabled: <@ input.bigbangValues.addons.minio.enabled | default(false) | tojson @>
+                                git:
+                                  repo: <@ input.bigbangValues.addons.minio.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/application-utilities/minio.git"') @>
+                                  path: <@ input.bigbangValues.addons.minio.git.path | default('"./chart"') @>
+                                  tag: <@ input.bigbangValues.addons.minio.git.tag | default('"2.0.9-bb.12"') @>
+                                flux: <@ input.bigbangValues.addons.minio.flux | default({}) @>
+                                accesskey: <@ input.bigbangValues.addons.minio.accesskey | default('""') @>
+                                secretkey: <@ input.bigbangValues.addons.minio.secretkey | default('""') @>
+                                values: <@ input.bigbangValues.addons.minio.values | default({}) @>
+                                postRenderers: <@ input.bigbangValues.addons.minio.postRenderers | default([]) @>
+                              gitlab:
+                                enabled: <@ input.bigbangValues.addons.gitlab.enabled | default(false) | tojson @>
+                                hostnames:
+                                  gitlab: <@ input.bigbangValues.addons.gitlab.hostnames.gitlab | default('"gitlab.bigbang.dev"') @>
+                                  registry: <@ input.bigbangValues.addons.gitlab.hostnames.registry | default('"registry.bigbang.dev"') @>
+                                git:
+                                  repo: <@ input.bigbangValues.addons.gitlab.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/developer-tools/gitlab.git"') @>
+                                  path: <@ input.bigbangValues.addons.gitlab.git.path | default('"./chart"') @>
+                                  tag: <@ input.bigbangValues.addons.gitlab.git.tag | default('"4.10.3-bb.10"') @>
+                                flux: <@ input.bigbangValues.addons.gitlab.flux | default({}) @>
+                                sso:
+                                  enabled: <@ input.bigbangValues.addons.gitlab.sso.enabled | default(false) | tojson @>
+                                  client_id: <@ input.bigbangValues.addons.gitlab.sso.client_id | default('""') @>
+                                  client_secret: <@ input.bigbangValues.addons.gitlab.sso.client_secret | default('""') @>
+                                  label: <@ input.bigbangValues.addons.gitlab.sso.label | default('""') @>
+                                database:
+                                  host: <@ input.bigbangValues.addons.gitlab.database.host | default('""') @>
+                                  port: <@ input.bigbangValues.addons.gitlab.database.port | default(5432) @>
+                                  database: <@ input.bigbangValues.addons.gitlab.database.database | default('""') @>
+                                  username: <@ input.bigbangValues.addons.gitlab.database.username | default('""') @>
+                                  password: <@ input.bigbangValues.addons.gitlab.database.password | default('""') @>
+                                objectStorage:
+                                  type: <@ input.bigbangValues.addons.gitlab.objectStorage.type | default('""') @>
+                                  endpoint: <@ input.bigbangValues.addons.gitlab.objectStorage.endpoint | default('""') @>
+                                  region: <@ input.bigbangValues.addons.gitlab.objectStorage.region | default('""') @>
+                                  accessKey: <@ input.bigbangValues.addons.gitlab.objectStorage.accessKey | default('""') @>
+                                  accessSecret: <@ input.bigbangValues.addons.gitlab.objectStorage.accessSecret | default('""') @>
+                                  bucketPrefix: <@ input.bigbangValues.addons.gitlab.objectStorage.bucketPrefix | default('""') @>
+                                values: <@ input.bigbangValues.addons.gitlab.values | default({}) @>
+                                postRenderers: <@ input.bigbangValues.addons.gitlab.postRenderers | default([]) @>
+                              gitlabRunner:
+                                enabled: <@ input.bigbangValues.addons.gitlabRunner.enabled | default(false) | tojson @>
+                                git:
+                                  repo: <@ input.bigbangValues.addons.gitlabRunner.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/developer-tools/gitlab-runner.git"') @>
+                                  path: <@ input.bigbangValues.addons.gitlabRunner.git.path | default('"./chart"') @>
+                                  tag: <@ input.bigbangValues.addons.gitlabRunner.git.tag | default('"0.26.0-bb.3"') @>
+                                flux: <@ input.bigbangValues.addons.gitlabRunner.flux | default({}) @>
+                                values: <@ input.bigbangValues.addons.gitlabRunner.values | default({}) @>
+                                postRenderers: <@ input.bigbangValues.addons.gitlabRunner.postRenderers | default([]) @>
+                              nexus:
+                                enabled: <@ input.bigbangValues.addons.nexus.enabled | default(false) | tojson @>
+                                git:
+                                  repo: <@ input.bigbangValues.addons.nexus.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/developer-tools/nexus.git"') @>
+                                  path: <@ input.bigbangValues.addons.nexus.git.path | default('"./chart"') @>
+                                  tag: <@ input.bigbangValues.addons.nexus.git.tag | default('"29.1.0-bb.4"') @>
+                                license_key: <@ input.bigbangValues.addons.nexus.license_key | default('""') @>
+                                sso:
+                                  enabled: <@ input.bigbangValues.addons.nexus.sso.enabled | default(false) | tojson @>
+                                  idp_data:
+                                    username: <@ input.bigbangValues.addons.nexus.sso.idp_data.username | default('""') @>
+                                    firstName: <@ input.bigbangValues.addons.nexus.sso.idp_data.firstName | default('""') @>
+                                    lastName: <@ input.bigbangValues.addons.nexus.sso.idp_data.lastName | default('""') @>
+                                    email: <@ input.bigbangValues.addons.nexus.sso.idp_data.email | default('""') @>
+                                    groups: <@ input.bigbangValues.addons.nexus.sso.idp_data.groups | default('""') @>
+                                    idpMetadata: <@ input.bigbangValues.addons.nexus.sso.idp_data.idpMetadata | default('""') @>
+                                  role:
+                                    id: <@ input.bigbangValues.addons.nexus.sso.role.id | default('""') @>
+                                    name: <@ input.bigbangValues.addons.nexus.sso.role.name | default('""') @>
+                                    description: <@ input.bigbangValues.addons.nexus.sso.role.description | default('""') @>
+                                flux: <@ input.bigbangValues.addons.nexus.flux | default({}) @>
+                                values: <@ input.bigbangValues.addons.nexus.values | default({}) @>
+                              sonarqube:
+                                enabled: <@ input.bigbangValues.addons.sonarqube.enabled | default(false) | tojson @>
+                                git:
+                                  repo: <@ input.bigbangValues.addons.sonarqube.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/developer-tools/sonarqube.git"') @>
+                                  path: <@ input.bigbangValues.addons.sonarqube.git.path | default('"./chart"') @>
+                                  tag: <@ input.bigbangValues.addons.sonarqube.git.tag | default('"9.2.6-bb.13"') @>
+                                flux: <@ input.bigbangValues.addons.sonarqube.flux | default({}) @>
+                                sso:
+                                  enabled: <@ input.bigbangValues.addons.sonarqube.sso.enabled | default(false) | tojson @>
+                                  client_id: <@ input.bigbangValues.addons.sonarqube.sso.client_id | default('""') @>
+                                  label: <@ input.bigbangValues.addons.sonarqube.sso.label | default('""') @>
+                                  certificate: <@ input.bigbangValues.addons.sonarqube.sso.certificate | default('""') @>
+                                  login: <@ input.bigbangValues.addons.sonarqube.sso.login | default('"login"') @>
+                                  name: <@ input.bigbangValues.addons.sonarqube.sso.name | default('"name"') @>
+                                  email: <@ input.bigbangValues.addons.sonarqube.sso.email | default('"email"') @>
+                                  group: <@ input.bigbangValues.addons.sonarqube.sso.group | default('"group"') @>
+                                database:
+                                  host: <@ input.bigbangValues.addons.sonarqube.database.host | default('""') @>
+                                  port: <@ input.bigbangValues.addons.sonarqube.database.port | default(5432) @>
+                                  database: <@ input.bigbangValues.addons.sonarqube.database.database | default('""') @>
+                                  username: <@ input.bigbangValues.addons.sonarqube.database.username | default('""') @>
+                                  password: <@ input.bigbangValues.addons.sonarqube.database.password | default('""') @>
+                                values: <@ input.bigbangValues.addons.sonarqube.values | default({}) @>
+                                postRenderers: <@ input.bigbangValues.addons.sonarqube.postRenderers | default([]) @>
+                              haproxy:
+                                enabled: <@ input.bigbangValues.addons.haproxy.enabled | default(false) | tojson @>
+                                git:
+                                  repo: <@ input.bigbangValues.addons.haproxy.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/developer-tools/haproxy"') @>
+                                  path: <@ input.bigbangValues.addons.haproxy.git.path | default('"./chart"') @>
+                                  tag: <@ input.bigbangValues.addons.haproxy.git.tag | default('"1.1.2-bb.0"') @>
+                                flux: <@ input.bigbangValues.addons.haproxy.flux | default({}) @>
+                                values: <@ input.bigbangValues.addons.haproxy.values | default({}) @>
+                                postRenderers: <@ input.bigbangValues.addons.haproxy.postRenderers | default([]) @>
+                              anchore:
+                                enabled: <@ input.bigbangValues.addons.anchore.enabled | default(false) | tojson @>
+                                git:
+                                  repo: <@ input.bigbangValues.addons.anchore.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/security-tools/anchore-enterprise.git"') @>
+                                  path: <@ input.bigbangValues.addons.anchore.git.path | default('"./chart"') @>
+                                  tag: <@ input.bigbangValues.addons.anchore.git.tag | default('"1.12.16-bb.1"') @>
+                                flux:
+                                  upgrade:
+                                    disableWait: <@ input.bigbangValues.addons.anchore.flux.upgrade.disableWait | default(true) | tojson @>
+                                adminPassword: <@ input.bigbangValues.addons.anchore.adminPassword | default('""') @>
+                                enterprise:
+                                  enabled: <@ input.bigbangValues.addons.anchore.enterprise.enabled | default(false) | tojson @>
+                                  licenseYaml: <@ input.bigbangValues.addons.anchore.enterprise.licenseYaml | default(" |\n        FULL LICENSE\n") @>
+                                sso:
+                                  enabled: <@ input.bigbangValues.addons.anchore.sso.enabled | default(false) | tojson @>
+                                  client_id: <@ input.bigbangValues.addons.anchore.sso.client_id | default('""') @>
+                                  role_attribute: <@ input.bigbangValues.addons.anchore.sso.role_attribute | default('""') @>
+                                database:
+                                  host: <@ input.bigbangValues.addons.anchore.database.host | default('""') @>
+                                  port: <@ input.bigbangValues.addons.anchore.database.port | default('""') @>
+                                  username: <@ input.bigbangValues.addons.anchore.database.username | default('""') @>
+                                  password: <@ input.bigbangValues.addons.anchore.database.password | default('""') @>
+                                  database: <@ input.bigbangValues.addons.anchore.database.database | default('""') @>
+                                  feeds_database: <@ input.bigbangValues.addons.anchore.database.feeds_database | default('""') @>
+                                redis:
+                                  host: <@ input.bigbangValues.addons.anchore.redis.host | default('""') @>
+                                  port: <@ input.bigbangValues.addons.anchore.redis.port | default('""') @>
+                                  username: <@ input.bigbangValues.addons.anchore.redis.username | default('""') @>
+                                  password: <@ input.bigbangValues.addons.anchore.redis.password | default('""') @>
+                                values: <@ input.bigbangValues.addons.anchore.values | default({}) @>
+                                postRenderers: <@ input.bigbangValues.addons.anchore.postRenderers | default([]) @>
+                              mattermostoperator:
+                                enabled: <@ input.bigbangValues.addons.mattermostoperator.enabled | default(false) | tojson @>
+                                git:
+                                  repo: <@ input.bigbangValues.addons.mattermostoperator.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/collaboration-tools/mattermost-operator.git"') @>
+                                  path: <@ input.bigbangValues.addons.mattermostoperator.git.path | default('"./chart"') @>
+                                  tag: <@ input.bigbangValues.addons.mattermostoperator.git.tag | default('"1.14.0-bb.2"') @>
+                                flux: <@ input.bigbangValues.addons.mattermostoperator.flux | default({}) @>
+                                values: <@ input.bigbangValues.addons.mattermostoperator.values | default({}) @>
+                                postRenderers: <@ input.bigbangValues.addons.mattermostoperator.postRenderers | default([]) @>
+                              mattermost:
+                                enabled: <@ input.bigbangValues.addons.mattermost.enabled | default(false) | tojson @>
+                                git:
+                                  repo: <@ input.bigbangValues.addons.mattermost.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/collaboration-tools/mattermost.git"') @>
+                                  path: <@ input.bigbangValues.addons.mattermost.git.path | default('"./chart"') @>
+                                  tag: <@ input.bigbangValues.addons.mattermost.git.tag | default('"0.1.6-bb.6"') @>
+                                flux: <@ input.bigbangValues.addons.mattermost.flux | default({}) @>
+                                enterprise:
+                                  enabled: <@ input.bigbangValues.addons.mattermost.enterprise.enabled | default(false) | tojson @>
+                                  license: <@ input.bigbangValues.addons.mattermost.enterprise.license | default('""') @>
+                                sso:
+                                  enabled: <@ input.bigbangValues.addons.mattermost.sso.enabled | default(false) | tojson @>
+                                  client_id: <@ input.bigbangValues.addons.mattermost.sso.client_id | default('""') @>
+                                  client_secret: <@ input.bigbangValues.addons.mattermost.sso.client_secret | default('""') @>
+                                  auth_endpoint: <@ input.bigbangValues.addons.mattermost.sso.auth_endpoint | default('""') @>
+                                  token_endpoint: <@ input.bigbangValues.addons.mattermost.sso.token_endpoint | default('""') @>
+                                  user_api_endpoint: <@ input.bigbangValues.addons.mattermost.sso.user_api_endpoint | default('""') @>
+                                database:
+                                  host: <@ input.bigbangValues.addons.mattermost.database.host | default('""') @>
+                                  port: <@ input.bigbangValues.addons.mattermost.database.port | default('""') @>
+                                  username: <@ input.bigbangValues.addons.mattermost.database.username | default('""') @>
+                                  password: <@ input.bigbangValues.addons.mattermost.database.password | default('""') @>
+                                  database: <@ input.bigbangValues.addons.mattermost.database.database | default('""') @>
+                                  ssl_mode: <@ input.bigbangValues.addons.mattermost.database.ssl_mode | default('""') @>
+                                objectStorage:
+                                  endpoint: <@ input.bigbangValues.addons.mattermost.objectStorage.endpoint | default('""') @>
+                                  accessKey: <@ input.bigbangValues.addons.mattermost.objectStorage.accessKey | default('""') @>
+                                  accessSecret: <@ input.bigbangValues.addons.mattermost.objectStorage.accessSecret | default('""') @>
+                                  bucket: <@ input.bigbangValues.addons.mattermost.objectStorage.bucket | default('""') @>
+                                elasticsearch:
+                                  enabled: <@ input.bigbangValues.addons.mattermost.elasticsearch.enabled | default(false) | tojson @>
+                                values: <@ input.bigbangValues.addons.mattermost.values | default({}) @>
+                                postRenderers: <@ input.bigbangValues.addons.mattermost.postRenderers | default([]) @>
+                              velero:
+                                enabled: <@ input.bigbangValues.addons.velero.enabled | default(false) | tojson @>
+                                git:
+                                  repo: <@ input.bigbangValues.addons.velero.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/cluster-utilities/velero.git"') @>
+                                  path: <@ input.bigbangValues.addons.velero.git.path | default('"./chart"') @>
+                                  tag: <@ input.bigbangValues.addons.velero.git.tag | default('"2.21.1-bb.5"') @>
+                                flux: <@ input.bigbangValues.addons.velero.flux | default({}) @>
+                                plugins: <@ input.bigbangValues.addons.velero.plugins | default([]) @>
+                                values: <@ input.bigbangValues.addons.velero.values | default({}) @>
+                                postRenderers: <@ input.bigbangValues.addons.velero.postRenderers | default([]) @>
+                              keycloak:
+                                enabled: <@ input.bigbangValues.addons.keycloak.enabled | default(false) | tojson @>
+                                git:
+                                  repo: <@ input.bigbangValues.addons.keycloak.git.repo | default('"https://repo1.dso.mil/platform-one/big-bang/apps/security-tools/keycloak.git"') @>
+                                  path: <@ input.bigbangValues.addons.keycloak.git.path | default('"./chart"') @>
+                                  tag: <@ input.bigbangValues.addons.keycloak.git.tag | default('"11.0.0-bb.4"') @>
+                                <% if input.bigbangValues.addons.keycloak.ingress %>
+                                ingress:
+                                  key: |
+                                    <@ input.bigbangValues.addons.keycloak.ingress.key | indent(8) @>
+                                  cert: |
+                                    <@ input.bigbangValues.addons.keycloak.ingress.cert | indent(8) @>
+                                <% endif %>
+                                database:
+                                  host: <@ input.bigbangValues.addons.keycloak.database.host | default('""') @>
+                                  type: <@ input.bigbangValues.addons.keycloak.database.type | default('"postgres"') @>
+                                  port: <@ input.bigbangValues.addons.keycloak.database.port | default(5432) @>
+                                  database: <@ input.bigbangValues.addons.keycloak.database.database | default('""') @>
+                                  username: <@ input.bigbangValues.addons.keycloak.database.username | default('""') @>
+                                  password: <@ input.bigbangValues.addons.keycloak.database.password | default('""') @>
+                                flux: <@ input.bigbangValues.addons.keycloak.flux | default({}) @>
+                                values: <@ input.bigbangValues.addons.keycloak.values | default({}) @>
+
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.input-parameters}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+                - name: render-push-script
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            #!/usr/bin/env sh
+
+                            cd /repo
+
+                            # Set git config
+                            git config --global user.email "contact@capact.io <contact@capact.io>"
+                            git config --global user.name "Capact Action"
+                            git config --global init.defaultBranch <@ repo.branchName @>
+
+                            # Repo initialization
+                            git init
+                            git add -A
+
+                            git commit -m "Initialize Big-Bang configuration repository"
+                            git branch -M <@ repo.branchName @>
+
+                            # Repo push
+                            # Credentials are always required to push repository.
+                            <% set repoUrl = repo.url %>
+                            <% set repoUrlWithoutScheme = repoUrl | replace("http://", "") | replace("https://", "") %>
+                            git push <@ 'https://' if repoUrl.startswith('https://') else 'http://' @><@ repo.username @>:<@ repo.password @>@<@ repoUrlWithoutScheme @> --all
+
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.p1-config-repo}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: repo
+
+                - name: render-big-bang-install-input
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            registry1:
+                              username: "<@ input.registry1.username @>"
+                              password: "<@ input.registry1.password @>"
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.input-parameters}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+                # Configuration is ignored when already existing cluster is specified (via kubeconfig TI)
+                - name: render-create-target-cluster-input
+                  capact-action: jinja2.template
+                  arguments:
+                    artifacts:
+                      - name: template
+                        raw:
+                          data: |
+                            name: bigbang-cluster-<@ random_word(length=5) @>
+                            workers: <@ input.cluster.workers | default("2") @>
+                            controlPlanes: <@ input.cluster.controlPlanes | default("1") @>
+                      - name: input-parameters
+                        from: "{{inputs.artifacts.input-parameters}}"
+                      - name: configuration
+                        raw:
+                          data: |
+                            prefix: input
+
+              - - name: push-big-bang-repository
+                  template: push-repo
+                  arguments:
+                    artifacts:
+                      - name: main-tf
+                        http:
+                          url: https://raw.githubusercontent.com/StructsureLabs/Quick-Start-Big-Bang/kubeconfig-var/main.tf
+                      - name: gitignore
+                        http:
+                          url: https://raw.githubusercontent.com/StructsureLabs/Quick-Start-Big-Bang/kubeconfig-var/.gitignore
+                      - name: bigbang-start-yaml
+                        from: "{{steps.render-start-yaml.outputs.artifacts.render}}"
+                      - name: bigbang-kustomization-yaml
+                        from: "{{steps.render-kustomization-yaml.outputs.artifacts.render}}"
+                      - name: bigbang-values-yaml
+                        from: "{{steps.render-values-yaml.outputs.artifacts.render}}"
+                      - name: push-script
+                        from: "{{steps.render-push-script.outputs.artifacts.render}}"
+
+                - name: create-target-cluster
+                  capact-when: kubeconfig == nil
+                  capact-action: k8s.deploy
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{steps.render-create-target-cluster-input.outputs.artifacts.render}}"
+
+              - - name: install-big-bang
+                  capact-action: bigbang.install
+                  arguments:
+                    artifacts:
+                      - name: input-parameters
+                        from: "{{steps.render-big-bang-install-input.outputs.artifacts.render}}"
+                      - name: p1-config-repo
+                        from: "{{inputs.artifacts.p1-config-repo}}"
+                      - name: kubeconfig
+                        from: "{{steps.create-target-cluster.outputs.artifacts.kubeconfig}}"
+
+          - name: push-repo
+            inputs:
+              artifacts:
+                - name: main-tf
+                  path: /repo/main.tf
+                - name: gitignore
+                  path: /repo/.gitignore
+                - name: bigbang-start-yaml
+                  path: /repo/bigbang/start.yaml
+                - name: bigbang-kustomization-yaml
+                  path: /repo/bigbang/kustomization.yaml
+                - name: bigbang-values-yaml
+                  path: /repo/bigbang/values.yaml
+                - name: push-script
+                  path: "/in/script.sh"
+            container:
+              image: alpine/git:v2.30.2
+              command: [ sh ]
+              args: [ "/in/script.sh" ]

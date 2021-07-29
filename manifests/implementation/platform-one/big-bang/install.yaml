@@ -24,6 +24,7 @@ spec:
       uses:
         - terraform-release
         - p1-config-repo
+        - kubeconfig
 
   implements:
     - path: cap.interface.platform-one.big-bang.install

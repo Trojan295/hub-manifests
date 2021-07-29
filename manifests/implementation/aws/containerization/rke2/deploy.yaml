@@ -86,6 +86,12 @@ spec:
                 - name: input-parameters
                 - name: additional-parameters
                   optional: true
+            outputs:
+              artifacts:
+                - name: cluster
+                  from: "{{steps.render-cluster.outputs.artifacts.render}}"
+                - name: kubeconfig
+                  from: "{{steps.render-kubeconfig.outputs.artifacts.kubeconfig}}"
             steps:
               - - name: fill-default-input
                   capact-action: jinja2.template

@@ -1,0 +1,2365 @@
+ocfVersion: 0.0.1
+revision: 0.1.0
+kind: Interface
+metadata:
+  prefix: cap.implementation.platform-one.big-bang
+  name: provision
+  displayName: Provision Big-Bang cluster.
+  description: Action which creates target Kubernetes cluster and install Big-Bang on it.
+  documentationURL: https://p1.dso.mil/#/products/big-bang/
+  supportURL: https://p1.dso.mil/#/products/big-bang/
+  iconURL: https://p1.dso.mil/img/Big_Bang_Color_Logo_White_text.b04263b1.png
+  maintainers:
+    - email: team-dev@capact.io
+      name: Capact Dev Team
+      url: https://capact.io
+
+spec:
+  input:
+    parameters:
+      input-parameters:
+        jsonSchema:
+          value: |-
+            {
+              "$schema": "http://json-schema.org/draft-07/schema",
+              "type": "object",
+              "title": "The schema for Big-Bang configuration",
+              "properties": {
+                "cluster: {
+                  "$id": "#/properties/cluster",
+                  "type": "object",
+                  "properties": {
+                    "workers": {
+                      "$id": "#/properties/cluster/properties/workers",
+                      "type": "integer",
+                      "title": "Defines number of worker nodes"
+                    },
+                    "controlPlanes": {
+                      "$id": "#/properties/cluster/properties/controlPlanes",
+                      "type": "integer",
+                      "title": "Defines a number of control plane nodes"
+                    }
+                  }
+                },
+                "registry1": {
+                  "$id": "#/properties/registry1",
+                  "description": "Credentials for the registry1.dso.mil registry",
+                  "required": [
+                      "username",
+                      "password"
+                  ],
+                  "title": "Registry1 credentials",
+                  "type": "object",
+                  "properties": {
+                    "username": {
+                      "$id": "#/properties/registry1/properties/username",
+                      "title": "Username",
+                      "type": "string"
+                    },
+                    "password": {
+                      "$id": "#/properties/registry1/properties/password",
+                      "title": "Password",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "bigbangValues: {
+                  {
+                    "$id": "#/properties/bigbangValues",
+                    "properties": {
+                      "addons": {
+                        "properties": {
+                          "anchore": {
+                            "properties": {
+                              "adminPassword": {
+                                "default": "",
+                                "description": "Initial admin password used to authenticate to Anchore.",
+                                "type": "string"
+                              },
+                              "database": {
+                                "properties": {
+                                  "database": {
+                                    "default": "",
+                                    "description": "Database name to connect to on host (Note: database name CANNOT contain hyphens).",
+                                    "type": "string"
+                                  },
+                                  "feeds_database": {
+                                    "default": "",
+                                    "description": "Feeds database name to connect to on host (Note: feeds database name CANNOT contain hyphens). Only required for enterprise edition of anchore. By default, feeds database will be configured with the same username and password as the main database. For formatting examples on how to use a separate username and password for the feeds database see https://repo1.dso.mil/platform-one/big-bang/apps/security-tools/anchore-enterprise/-/blob/main/docs/CHART.md#handling-dependencies",
+                                    "type": "string"
+                                  },
+                                  "host": {
+                                    "default": "",
+                                    "description": "Hostname of a pre-existing PostgreSQL database to use for Anchore. Entering connection info will disable the deployment of an internal database and will auto-create any required secrets.",
+                                    "type": "string"
+                                  },
+                                  "password": {
+                                    "default": "",
+                                    "description": "Database password for the username used to connect to the existing database.",
+                                    "type": "string"
+                                  },
+                                  "port": {
+                                    "default": "",
+                                    "description": "Port of a pre-existing PostgreSQL database to use for Anchore.",
+                                    "type": "string"
+                                  },
+                                  "username": {
+                                    "default": "",
+                                    "description": "Username to connect as to external database, the user must have all privileges on the database.",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle deployment of Anchore.",
+                                "type": "boolean"
+                              },
+                              "enterprise": {
+                                "default": {
+                                  "enabled": false,
+                                  "licenseYaml": "FULL LICENSE\n"
+                                },
+                                "description": "Anchore Enterprise functionality.",
+                                "properties": {
+                                  "default": {
+                                    "enabled": false,
+                                    "licenseYaml": "FULL LICENSE\n"
+                                  },
+                                  "description": "Anchore Enterprise functionality.",
+                                  "enabled": {
+                                    "default": false,
+                                    "description": "Toggle the installation of Anchore Enterprise.  This must be accompanied by a valid license.",
+                                    "type": "boolean"
+                                  },
+                                  "licenseYaml": {
+                                    "default": "FULL LICENSE\n",
+                                    "description": "License for Anchore Enterprise. For formatting examples see https://repo1.dso.mil/platform-one/big-bang/apps/security-tools/anchore-enterprise/-/blob/main/docs/CHART.md#enabling-enterprise-services",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "flux": {
+                                "default": {
+                                  "upgrade": {
+                                    "disableWait": true
+                                  }
+                                },
+                                "description": "Flux reconciliation overrides specifically for the Anchore Package",
+                                "properties": {
+                                  "default": {
+                                    "upgrade": {
+                                      "disableWait": true
+                                    }
+                                  },
+                                  "description": "Flux reconciliation overrides specifically for the Anchore Package",
+                                  "upgrade": {
+                                    "properties": {
+                                      "disableWait": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "type": "object"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "git": {
+                                "properties": {
+                                  "path": {
+                                    "default": "./chart",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "repo": {
+                                    "default": "https://repo1.dso.mil/platform-one/big-bang/apps/security-tools/anchore-enterprise.git",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "tag": {
+                                    "default": "1.12.16-bb.1",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "postRenderers": {
+                                "default": [],
+                                "description": "Post Renderers.  See docs/postrenders.md",
+                                "type": "array"
+                              },
+                              "redis": {
+                                "properties": {
+                                  "host": {
+                                    "default": "",
+                                    "description": "Hostname of a pre-existing Redis to use for Anchore Enterprise. Entering connection info will enable external redis and will auto-create any required secrets. Anchore only requires redis for enterprise deployments and will not provision an instance if using external",
+                                    "type": "string"
+                                  },
+                                  "password": {
+                                    "default": "",
+                                    "description": "Password to connect to pre-existing Redis.",
+                                    "type": "string"
+                                  },
+                                  "port": {
+                                    "default": "",
+                                    "description": "Port of a pre-existing Redis to use for Anchore Enterprise.",
+                                    "type": "string"
+                                  },
+                                  "username": {
+                                    "default": "",
+                                    "description": "OPTIONAL: Username to connect to a pre-existing Redis (for password-only auth leave empty)",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "sso": {
+                                "properties": {
+                                  "client_id": {
+                                    "default": "",
+                                    "description": "Anchore OIDC client ID",
+                                    "type": "string"
+                                  },
+                                  "enabled": {
+                                    "default": false,
+                                    "description": "Toggle OIDC SSO for Anchore on and off. Enabling this option will auto-create any required secrets (Note: SSO requires an Enterprise license).",
+                                    "type": "boolean"
+                                  },
+                                  "role_attribute": {
+                                    "default": "",
+                                    "description": "Anchore OIDC client role attribute",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "values": {
+                                "default": {},
+                                "description": "Values to passthrough to the anchore chart: https://repo1.dso.mil/platform-one/big-bang/apps/security-tools/anchore-enterprise.git",
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "argocd": {
+                            "properties": {
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle deployment of ArgoCD.",
+                                "type": "boolean"
+                              },
+                              "flux": {
+                                "default": {},
+                                "description": "Flux reconciliation overrides specifically for the ArgoCD Package",
+                                "type": "object"
+                              },
+                              "git": {
+                                "properties": {
+                                  "path": {
+                                    "default": "./chart",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "repo": {
+                                    "default": "https://repo1.dso.mil/platform-one/big-bang/apps/core/argocd.git",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "tag": {
+                                    "default": "3.6.8-bb.0",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "postRenderers": {
+                                "default": [],
+                                "description": "Post Renderers.  See docs/postrenders.md",
+                                "type": "array"
+                              },
+                              "sso": {
+                                "properties": {
+                                  "client_id": {
+                                    "default": "",
+                                    "description": "ArgoCD OIDC client ID",
+                                    "type": "string"
+                                  },
+                                  "client_secret": {
+                                    "default": "",
+                                    "description": "ArgoCD OIDC client secret",
+                                    "type": "string"
+                                  },
+                                  "enabled": {
+                                    "default": false,
+                                    "description": "Toggle SSO for ArgoCD on and off",
+                                    "type": "boolean"
+                                  },
+                                  "groups": {
+                                    "default": "g, Impact Level 2 Authorized, role:admin\n",
+                                    "description": "ArgoCD SSO group roles, see docs for more details: https://argo-cd.readthedocs.io/en/stable/operator-manual/rbac/",
+                                    "type": "string"
+                                  },
+                                  "provider_name": {
+                                    "default": "",
+                                    "description": "ArgoCD SSO login text",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "values": {
+                                "default": {},
+                                "description": "Values to passthrough to the argocd chart: https://repo1.dso.mil/platform-one/big-bang/apps/core/argocd.git",
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "authservice": {
+                            "properties": {
+                              "chains": {
+                                "default": {},
+                                "description": "Additional authservice chain configurations.",
+                                "type": "object"
+                              },
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle deployment of Authservice. if enabling authservice, a filter needs to be provided by either enabling sso for monitoring or istio, or manually adding a filter chain in the values here: values:   chain:     minimal:       callback_uri: \"https://somecallback\"",
+                                "type": "boolean"
+                              },
+                              "flux": {
+                                "default": {},
+                                "description": "Flux reconciliation overrides specifically for the Authservice Package",
+                                "type": "object"
+                              },
+                              "git": {
+                                "properties": {
+                                  "path": {
+                                    "default": "./chart",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "repo": {
+                                    "default": "https://repo1.dso.mil/platform-one/big-bang/apps/core/authservice.git",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "tag": {
+                                    "default": "0.4.0-bb.8",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "postRenderers": {
+                                "default": [],
+                                "description": "Post Renderers.  See docs/postrenders.md",
+                                "type": "array"
+                              },
+                              "values": {
+                                "default": {},
+                                "description": "Values to passthrough to the authservice chart: https://repo1.dso.mil/platform-one/big-bang/apps/core/authservice.git",
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "gitlab": {
+                            "properties": {
+                              "database": {
+                                "properties": {
+                                  "database": {
+                                    "default": "",
+                                    "description": "Database name to connect to on host.",
+                                    "type": "string"
+                                  },
+                                  "host": {
+                                    "default": "",
+                                    "description": "Hostname of a pre-existing PostgreSQL database to use for Gitlab. Entering connection info will disable the deployment of an internal database and will auto-create any required secrets.",
+                                    "type": "string"
+                                  },
+                                  "password": {
+                                    "default": "",
+                                    "description": "Database password for the username used to connect to the existing database.",
+                                    "type": "string"
+                                  },
+                                  "port": {
+                                    "default": 5432,
+                                    "description": "Port of a pre-existing PostgreSQL database to use for Gitlab.",
+                                    "type": "integer"
+                                  },
+                                  "username": {
+                                    "default": "",
+                                    "description": "Username to connect as to external database, the user must have all privileges on the database.",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle deployment of Gitlab.",
+                                "type": "boolean"
+                              },
+                              "flux": {
+                                "default": {},
+                                "description": "Flux reconciliation overrides specifically for the Gitlab Package",
+                                "type": "object"
+                              },
+                              "git": {
+                                "properties": {
+                                  "path": {
+                                    "default": "./chart",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "repo": {
+                                    "default": "https://repo1.dso.mil/platform-one/big-bang/apps/developer-tools/gitlab.git",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "tag": {
+                                    "default": "4.10.3-bb.10",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "hostnames": {
+                                "properties": {
+                                  "gitlab": {
+                                    "default": "gitlab.bigbang.dev",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "registry": {
+                                    "default": "registry.bigbang.dev",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "objectStorage": {
+                                "properties": {
+                                  "accessKey": {
+                                    "default": "",
+                                    "description": "Access key for connecting to object storage endpoint.",
+                                    "type": "string"
+                                  },
+                                  "accessSecret": {
+                                    "default": "",
+                                    "description": "Secret key for connecting to object storage endpoint. Unencoded string data. This should be placed in the secret values and then encrypted",
+                                    "type": "string"
+                                  },
+                                  "bucketPrefix": {
+                                    "default": "",
+                                    "description": "Bucket prefix to use for identifying buckets. Example: \"prod\" will produce \"prod-gitlab-bucket\"",
+                                    "type": "string"
+                                  },
+                                  "endpoint": {
+                                    "default": "",
+                                    "description": "S3 compatible endpoint to use for connection information. examples: \"https://s3.amazonaws.com\" \"https://s3.us-gov-west-1.amazonaws.com\" \"http://minio.minio.svc.cluster.local:9000\"",
+                                    "type": "string"
+                                  },
+                                  "region": {
+                                    "default": "",
+                                    "description": "S3 compatible region to use for connection information.",
+                                    "type": "string"
+                                  },
+                                  "type": {
+                                    "default": "",
+                                    "description": "Type of object storage to use for Gitlab, setting to s3 will assume an external, pre-existing object storage is to be used. Entering connection info will enable this option and will auto-create any required secrets",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "postRenderers": {
+                                "default": [],
+                                "description": "Post Renderers.  See docs/postrenders.md",
+                                "type": "array"
+                              },
+                              "sso": {
+                                "properties": {
+                                  "client_id": {
+                                    "default": "",
+                                    "description": "Gitlab OIDC client ID",
+                                    "type": "string"
+                                  },
+                                  "client_secret": {
+                                    "default": "",
+                                    "description": "Gitlab OIDC client secret",
+                                    "type": "string"
+                                  },
+                                  "enabled": {
+                                    "default": false,
+                                    "description": "Toggle OIDC SSO for Gitlab on and off. Enabling this option will auto-create any required secrets.",
+                                    "type": "boolean"
+                                  },
+                                  "label": {
+                                    "default": "",
+                                    "description": "Gitlab SSO login button label",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "values": {
+                                "default": {},
+                                "description": "Values to passthrough to the gitlab chart: https://repo1.dso.mil/platform-one/big-bang/apps/developer-tools/gitlab.git",
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "gitlabRunner": {
+                            "properties": {
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle deployment of Gitlab Runner.",
+                                "type": "boolean"
+                              },
+                              "flux": {
+                                "default": {},
+                                "description": "Flux reconciliation overrides specifically for the Gitlab Runner Package",
+                                "type": "object"
+                              },
+                              "git": {
+                                "properties": {
+                                  "path": {
+                                    "default": "./chart",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "repo": {
+                                    "default": "https://repo1.dso.mil/platform-one/big-bang/apps/developer-tools/gitlab-runner.git",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "tag": {
+                                    "default": "0.26.0-bb.3",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "postRenderers": {
+                                "default": [],
+                                "description": "Post Renderers.  See docs/postrenders.md",
+                                "type": "array"
+                              },
+                              "values": {
+                                "default": {},
+                                "description": "Values to passthrough to the gitlab runner chart: https://repo1.dso.mil/platform-one/big-bang/apps/developer-tools/gitlab-runner.git",
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "haproxy": {
+                            "properties": {
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle deployment of HAProxy.",
+                                "type": "boolean"
+                              },
+                              "flux": {
+                                "default": {},
+                                "description": "Flux reconciliation overrides specifically for the HAProxy Package",
+                                "type": "object"
+                              },
+                              "git": {
+                                "properties": {
+                                  "path": {
+                                    "default": "./chart",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "repo": {
+                                    "default": "https://repo1.dso.mil/platform-one/big-bang/apps/developer-tools/haproxy",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "tag": {
+                                    "default": "1.1.2-bb.0",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "postRenderers": {
+                                "default": [],
+                                "description": "Post Renderers.  See docs/postrenders.md",
+                                "type": "array"
+                              },
+                              "values": {
+                                "default": {},
+                                "description": "Values to passthrough to the haproxy chart: https://repo1.dso.mil/platform-one/big-bang/apps/sandbox/haproxy.git",
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "keycloak": {
+                            "properties": {
+                              "database": {
+                                "properties": {
+                                  "database": {
+                                    "default": "",
+                                    "description": "Database name to connect to on host.",
+                                    "type": "string"
+                                  },
+                                  "host": {
+                                    "default": "",
+                                    "description": "Hostname of a pre-existing database to use for Keycloak. Entering connection info will disable the deployment of an internal database and will auto-create any required secrets.",
+                                    "type": "string"
+                                  },
+                                  "password": {
+                                    "default": "",
+                                    "description": "Database password for the username used to connect to the existing database.",
+                                    "type": "string"
+                                  },
+                                  "port": {
+                                    "default": 5432,
+                                    "description": "Port of a pre-existing database to use for Keycloak.",
+                                    "type": "integer"
+                                  },
+                                  "type": {
+                                    "default": "postgres",
+                                    "description": "Pre-existing database type (e.g. postgres) to use for Keycloak.",
+                                    "type": "string"
+                                  },
+                                  "username": {
+                                    "default": "",
+                                    "description": "Username to connect as to external database, the user must have all privileges on the database.",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle deployment of Keycloak.",
+                                "type": "boolean"
+                              },
+                              "flux": {
+                                "default": {},
+                                "description": "Flux reconciliation overrides specifically for the OPA Gatekeeper Package",
+                                "type": "object"
+                              },
+                              "git": {
+                                "properties": {
+                                  "path": {
+                                    "default": "./chart",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "repo": {
+                                    "default": "https://repo1.dso.mil/platform-one/big-bang/apps/security-tools/keycloak.git",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "tag": {
+                                    "default": "11.0.0-bb.4",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "ingress": {
+                                "default": {
+                                  "cert": "",
+                                  "key": ""
+                                },
+                                "description": "Certificate/Key pair to use as the certificate for exposing Keycloak Setting the ingress cert here will automatically create the volume and volumemounts in the Keycloak Package chart",
+                                "properties": {
+                                  "cert": {
+                                    "type": "string"
+                                  },
+                                  "default": {
+                                    "cert": "",
+                                    "key": ""
+                                  },
+                                  "description": "Certificate/Key pair to use as the certificate for exposing Keycloak Setting the ingress cert here will automatically create the volume and volumemounts in the Keycloak Package chart",
+                                  "key": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "values": {
+                                "default": {},
+                                "description": "Values to passthrough to the keycloak chart: https://repo1.dso.mil/platform-one/big-bang/apps/security-tools/keycloak.git",
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "mattermost": {
+                            "properties": {
+                              "database": {
+                                "properties": {
+                                  "database": {
+                                    "default": "",
+                                    "description": "Database name to connect to on host.",
+                                    "type": "string"
+                                  },
+                                  "host": {
+                                    "default": "",
+                                    "description": "Hostname of a pre-existing PostgreSQL database to use for Mattermost. Entering connection info will disable the deployment of an internal database and will auto-create any required secrets.",
+                                    "type": "string"
+                                  },
+                                  "password": {
+                                    "default": "",
+                                    "description": "Database password for the username used to connect to the existing database.",
+                                    "type": "string"
+                                  },
+                                  "port": {
+                                    "default": "",
+                                    "description": "Port of a pre-existing PostgreSQL database to use for Mattermost.",
+                                    "type": "string"
+                                  },
+                                  "ssl_mode": {
+                                    "default": "",
+                                    "description": "SSL Mode to use when connecting to the database. Allowable values for this are viewable in the postgres documentation: https://www.postgresql.org/docs/current/libpq-ssl.html#LIBPQ-SSL-SSLMODE-STATEMENTS",
+                                    "type": "string"
+                                  },
+                                  "username": {
+                                    "default": "",
+                                    "description": "Username to connect as to external database, the user must have all privileges on the database.",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "elasticsearch": {
+                                "default": {
+                                  "enabled": false
+                                },
+                                "description": "Mattermost Elasticsearch integration - requires enterprise E20 license - https://docs.mattermost.com/deployment/elasticsearch.html Connection info defaults to the BB deployed Elastic, all values can be overridden via the \"values\" passthrough for other connections. See values spec in MM chart \"elasticsearch\" yaml block - https://repo1.dso.mil/platform-one/big-bang/apps/collaboration-tools/mattermost/-/blob/main/chart/values.yaml",
+                                "properties": {
+                                  "default": {
+                                    "enabled": false
+                                  },
+                                  "description": "Mattermost Elasticsearch integration - requires enterprise E20 license - https://docs.mattermost.com/deployment/elasticsearch.html Connection info defaults to the BB deployed Elastic, all values can be overridden via the \"values\" passthrough for other connections. See values spec in MM chart \"elasticsearch\" yaml block - https://repo1.dso.mil/platform-one/big-bang/apps/collaboration-tools/mattermost/-/blob/main/chart/values.yaml",
+                                  "enabled": {
+                                    "default": false,
+                                    "description": "Toggle interaction with Elastic for optimized search indexing",
+                                    "type": "boolean"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle deployment of Mattermost.",
+                                "type": "boolean"
+                              },
+                              "enterprise": {
+                                "default": {
+                                  "enabled": false,
+                                  "license": ""
+                                },
+                                "description": "Mattermost Enterprise functionality.",
+                                "properties": {
+                                  "default": {
+                                    "enabled": false,
+                                    "license": ""
+                                  },
+                                  "description": "Mattermost Enterprise functionality.",
+                                  "enabled": {
+                                    "default": false,
+                                    "description": "Toggle the Mattermost Enterprise.  This must be accompanied by a valid license unless you plan to start a trial post-install.",
+                                    "type": "boolean"
+                                  },
+                                  "license": {
+                                    "default": "",
+                                    "description": "License for Mattermost. This should be the entire contents of the license file from Mattermost (should be one line), example below license: \"eyJpZCI6InIxM205bjR3eTdkYjludG95Z3RiOD---REST---IS---HIDDEN",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "flux": {
+                                "default": {},
+                                "description": "Flux reconciliation overrides specifically for the Mattermost Package",
+                                "type": "object"
+                              },
+                              "git": {
+                                "properties": {
+                                  "path": {
+                                    "default": "./chart",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "repo": {
+                                    "default": "https://repo1.dso.mil/platform-one/big-bang/apps/collaboration-tools/mattermost.git",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "tag": {
+                                    "default": "0.1.6-bb.6",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "objectStorage": {
+                                "properties": {
+                                  "accessKey": {
+                                    "default": "",
+                                    "description": "Access key for connecting to object storage endpoint.",
+                                    "type": "string"
+                                  },
+                                  "accessSecret": {
+                                    "default": "",
+                                    "description": "Secret key for connecting to object storage endpoint. Unencoded string data. This should be placed in the secret values and then encrypted",
+                                    "type": "string"
+                                  },
+                                  "bucket": {
+                                    "default": "",
+                                    "description": "Bucket name to use for Mattermost - will be auto-created.",
+                                    "type": "string"
+                                  },
+                                  "endpoint": {
+                                    "default": "",
+                                    "description": "S3 compatible endpoint to use for connection information. Entering connection info will enable this option and will auto-create any required secrets. examples: \"s3.amazonaws.com\" \"s3.us-gov-west-1.amazonaws.com\" \"minio.minio.svc.cluster.local:9000\"",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "postRenderers": {
+                                "default": [],
+                                "description": "Post Renderers.  See docs/postrenders.md",
+                                "type": "array"
+                              },
+                              "sso": {
+                                "properties": {
+                                  "auth_endpoint": {
+                                    "default": "",
+                                    "description": "Mattermost OIDC auth endpoint To get endpoint values, see here: https://repo1.dso.mil/platform-one/big-bang/apps/collaboration-tools/mattermost/-/blob/main/docs/keycloak.md#helm-values",
+                                    "type": "string"
+                                  },
+                                  "client_id": {
+                                    "default": "",
+                                    "description": "Mattermost OIDC client ID",
+                                    "type": "string"
+                                  },
+                                  "client_secret": {
+                                    "default": "",
+                                    "description": "Mattermost OIDC client secret",
+                                    "type": "string"
+                                  },
+                                  "enabled": {
+                                    "default": false,
+                                    "description": "Toggle OIDC SSO for Mattermost on and off. Enabling this option will auto-create any required secrets.",
+                                    "type": "boolean"
+                                  },
+                                  "token_endpoint": {
+                                    "default": "",
+                                    "description": "Mattermost OIDC token endpoint To get endpoint values, see here: https://repo1.dso.mil/platform-one/big-bang/apps/collaboration-tools/mattermost/-/blob/main/docs/keycloak.md#helm-values",
+                                    "type": "string"
+                                  },
+                                  "user_api_endpoint": {
+                                    "default": "",
+                                    "description": "Mattermost OIDC user API endpoint To get endpoint values, see here: https://repo1.dso.mil/platform-one/big-bang/apps/collaboration-tools/mattermost/-/blob/main/docs/keycloak.md#helm-values",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "values": {
+                                "default": {},
+                                "description": "Values to passthrough to the Mattermost chart: https://repo1.dso.mil/platform-one/big-bang/apps/collaboration-tools/mattermost/-/blob/main/chart/values.yaml",
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "mattermostoperator": {
+                            "properties": {
+                              "enabled": {
+                                "default": false,
+                                "description": "",
+                                "type": "boolean"
+                              },
+                              "flux": {
+                                "default": {},
+                                "description": "Flux reconciliation overrides specifically for the Mattermost Operator Package",
+                                "type": "object"
+                              },
+                              "git": {
+                                "properties": {
+                                  "path": {
+                                    "default": "./chart",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "repo": {
+                                    "default": "https://repo1.dso.mil/platform-one/big-bang/apps/collaboration-tools/mattermost-operator.git",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "tag": {
+                                    "default": "1.14.0-bb.2",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "postRenderers": {
+                                "default": [],
+                                "description": "Post Renderers.  See docs/postrenders.md",
+                                "type": "array"
+                              },
+                              "values": {
+                                "default": {},
+                                "description": "Values to passthrough to the mattermost operator chart: https://repo1.dso.mil/platform-one/big-bang/apps/collaboration-tools/mattermost-operator/-/blob/main/chart/values.yaml",
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "minio": {
+                            "properties": {
+                              "accesskey": {
+                                "default": "",
+                                "description": "Default access key to use for minio.",
+                                "type": "string"
+                              },
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle deployment of minio.",
+                                "type": "boolean"
+                              },
+                              "flux": {
+                                "default": {},
+                                "description": "Flux reconciliation overrides specifically for the Minio Package",
+                                "type": "object"
+                              },
+                              "git": {
+                                "properties": {
+                                  "path": {
+                                    "default": "./chart",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "repo": {
+                                    "default": "https://repo1.dso.mil/platform-one/big-bang/apps/application-utilities/minio.git",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "tag": {
+                                    "default": "2.0.9-bb.12",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "postRenderers": {
+                                "default": [],
+                                "description": "Post Renderers.  See docs/postrenders.md",
+                                "type": "array"
+                              },
+                              "secretkey": {
+                                "default": "",
+                                "description": "Default secret key to intstantiate with minio, you should change/delete this after installation.",
+                                "type": "string"
+                              },
+                              "values": {
+                                "default": {},
+                                "description": "Values to passthrough to the minio instance chart: https://repo1.dso.mil/platform-one/big-bang/apps/application-utilities/minio.git",
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "minioOperator": {
+                            "properties": {
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle deployment of minio operator and instance.",
+                                "type": "boolean"
+                              },
+                              "flux": {
+                                "default": {},
+                                "description": "Flux reconciliation overrides specifically for the Minio Operator Package",
+                                "type": "object"
+                              },
+                              "git": {
+                                "properties": {
+                                  "path": {
+                                    "default": "./chart",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "repo": {
+                                    "default": "https://repo1.dso.mil/platform-one/big-bang/apps/application-utilities/minio-operator.git",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "tag": {
+                                    "default": "2.0.9-bb.3",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "postRenderers": {
+                                "default": [],
+                                "description": "Post Renderers.  See docs/postrenders.md",
+                                "type": "array"
+                              },
+                              "values": {
+                                "default": {},
+                                "description": "Values to passthrough to the minio operator chart: https://repo1.dso.mil/platform-one/big-bang/apps/application-utilities/minio-operator.git",
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "nexus": {
+                            "properties": {
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle deployment of Nexus.",
+                                "type": "boolean"
+                              },
+                              "flux": {
+                                "default": {},
+                                "description": "Flux reconciliation overrides specifically for the Nexus Repository Manager Package",
+                                "type": "object"
+                              },
+                              "git": {
+                                "properties": {
+                                  "path": {
+                                    "default": "./chart",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "repo": {
+                                    "default": "https://repo1.dso.mil/platform-one/big-bang/apps/developer-tools/nexus.git",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "tag": {
+                                    "default": "29.1.0-bb.4",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "license_key": {
+                                "default": "",
+                                "description": "Base64 encoded license file.",
+                                "type": "string"
+                              },
+                              "sso": {
+                                "properties": {
+                                  "enabled": {
+                                    "default": false,
+                                    "description": "Toggle SAML SSO for NXRM. -- handles SAML SSO, a Client must be configured in Keycloak or IdP -- to complete setup. -- https://support.sonatype.com/hc/en-us/articles/1500000976522-SAML-integration-for-Nexus-Repository-Manager-Pro-3-and-Nexus-IQ-Server-with-Keycloak#h_01EV7CWCYH3YKAPMAHG8XMQ599",
+                                    "type": "boolean"
+                                  },
+                                  "idp_data": {
+                                    "default": {
+                                      "email": "",
+                                      "firstName": "",
+                                      "groups": "",
+                                      "idpMetadata": "",
+                                      "lastName": "",
+                                      "username": ""
+                                    },
+                                    "description": "NXRM SAML SSO Integration data",
+                                    "properties": {
+                                      "default": {
+                                        "email": "",
+                                        "firstName": "",
+                                        "groups": "",
+                                        "idpMetadata": "",
+                                        "lastName": "",
+                                        "username": ""
+                                      },
+                                      "description": "NXRM SAML SSO Integration data",
+                                      "email": {
+                                        "default": "",
+                                        "description": "NXRM email attribute (optional)",
+                                        "type": "string"
+                                      },
+                                      "firstName": {
+                                        "default": "",
+                                        "description": "NXRM firstname attribute (optional)",
+                                        "type": "string"
+                                      },
+                                      "groups": {
+                                        "default": "",
+                                        "description": "NXRM groups attribute (optional)",
+                                        "type": "string"
+                                      },
+                                      "idpMetadata": {
+                                        "default": "",
+                                        "description": "IDP SAML Metadata XML as a single line string in single quotes -- this information is public and does not require a secret",
+                                        "type": "string"
+                                      },
+                                      "lastName": {
+                                        "default": "",
+                                        "description": "NXRM lastname attribute (optional)",
+                                        "type": "string"
+                                      },
+                                      "username": {
+                                        "default": "",
+                                        "description": "IdP Field Mappings -- NXRM username attribute",
+                                        "type": "string"
+                                      }
+                                    },
+                                    "type": "object"
+                                  },
+                                  "role": {
+                                    "default": {
+                                      "description": "",
+                                      "id": "",
+                                      "name": ""
+                                    },
+                                    "description": "NXRM Role",
+                                    "properties": {
+                                      "default": {
+                                        "description": "",
+                                        "id": "",
+                                        "name": ""
+                                      },
+                                      "description": "NXRM Role",
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "type": "object"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "values": {
+                                "default": {},
+                                "description": "Values to passthrough to the nxrm chart: https://repo1.dso.mil/platform-one/big-bang/apps/sandbox/nexus.git",
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "sonarqube": {
+                            "properties": {
+                              "database": {
+                                "properties": {
+                                  "database": {
+                                    "default": "",
+                                    "description": "Database name to connect to on host.",
+                                    "type": "string"
+                                  },
+                                  "host": {
+                                    "default": "",
+                                    "description": "Hostname of a pre-existing PostgreSQL database to use for SonarQube.",
+                                    "type": "string"
+                                  },
+                                  "password": {
+                                    "default": "",
+                                    "description": "Database password for the username used to connect to the existing database.",
+                                    "type": "string"
+                                  },
+                                  "port": {
+                                    "default": 5432,
+                                    "description": "Port of a pre-existing PostgreSQL database to use for SonarQube.",
+                                    "type": "integer"
+                                  },
+                                  "username": {
+                                    "default": "",
+                                    "description": "Username to connect as to external database, the user must have all privileges on the database.",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle deployment of SonarQube.",
+                                "type": "boolean"
+                              },
+                              "flux": {
+                                "default": {},
+                                "description": "Flux reconciliation overrides specifically for the Sonarqube Package",
+                                "type": "object"
+                              },
+                              "git": {
+                                "properties": {
+                                  "path": {
+                                    "default": "./chart",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "repo": {
+                                    "default": "https://repo1.dso.mil/platform-one/big-bang/apps/developer-tools/sonarqube.git",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "tag": {
+                                    "default": "9.2.6-bb.13",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "postRenderers": {
+                                "default": [],
+                                "description": "Post Renderers.  See docs/postrenders.md",
+                                "type": "array"
+                              },
+                              "sso": {
+                                "properties": {
+                                  "certificate": {
+                                    "default": "",
+                                    "description": "SonarQube plaintext SAML sso certificate. example: MITCAYCBFyIEUjNBkqhkiG9w0BA....",
+                                    "type": "string"
+                                  },
+                                  "client_id": {
+                                    "default": "",
+                                    "description": "SonarQube SAML client ID",
+                                    "type": "string"
+                                  },
+                                  "email": {
+                                    "default": "email",
+                                    "description": "SonarQube email sso attribute.",
+                                    "type": "string"
+                                  },
+                                  "enabled": {
+                                    "default": false,
+                                    "description": "Toggle SAML SSO for SonarQube. Enabling this option will auto-create any required secrets.",
+                                    "type": "boolean"
+                                  },
+                                  "group": {
+                                    "default": "group",
+                                    "description": "(optional) SonarQube group sso attribute.",
+                                    "type": "string"
+                                  },
+                                  "label": {
+                                    "default": "",
+                                    "description": "SonarQube SSO login button label",
+                                    "type": "string"
+                                  },
+                                  "login": {
+                                    "default": "login",
+                                    "description": "SonarQube login sso attribute.",
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "default": "name",
+                                    "description": "SonarQube name sso attribute.",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "values": {
+                                "default": {},
+                                "description": "Values to passthrough to the sonarqube chart: https://repo1.dso.mil/platform-one/big-bang/apps/developer-tools/sonarqube.git",
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "velero": {
+                            "properties": {
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle deployment of Velero.",
+                                "type": "boolean"
+                              },
+                              "flux": {
+                                "default": {},
+                                "description": "Flux reconciliation overrides specifically for the Velero Package",
+                                "type": "object"
+                              },
+                              "git": {
+                                "properties": {
+                                  "path": {
+                                    "default": "./chart",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "repo": {
+                                    "default": "https://repo1.dso.mil/platform-one/big-bang/apps/cluster-utilities/velero.git",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "tag": {
+                                    "default": "2.21.1-bb.5",
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "plugins": {
+                                "default": [],
+                                "description": "Plugin provider for Velero - requires at least one plugin installed. Current supported values: aws, azure ",
+                                "type": "array"
+                              },
+                              "postRenderers": {
+                                "default": [],
+                                "description": "Post Renderers.  See docs/postrenders.md",
+                                "type": "array"
+                              },
+                              "values": {
+                                "default": {},
+                                "description": "Values to passthrough to the Velero chart: https://repo1.dso.mil/platform-one/big-bang/apps/cluster-utilities/velero/-/blob/main/chart/values.yaml",
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "clusterAuditor": {
+                        "properties": {
+                          "enabled": {
+                            "default": true,
+                            "description": "Toggle deployment of Cluster Auditor.",
+                            "type": "boolean"
+                          },
+                          "flux": {
+                            "default": {},
+                            "description": "Flux reconciliation overrides specifically for the Cluster Auditor Package",
+                            "type": "object"
+                          },
+                          "git": {
+                            "properties": {
+                              "path": {
+                                "default": "./chart",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "repo": {
+                                "default": "https://repo1.dso.mil/platform-one/big-bang/apps/core/cluster-auditor.git",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "tag": {
+                                "default": "0.3.0-bb.1",
+                                "description": "",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "postRenderers": {
+                            "default": [],
+                            "description": "Post Renderers.  See docs/postrenders.md",
+                            "type": "array"
+                          },
+                          "values": {
+                            "default": {},
+                            "description": "Values to passthrough to the cluster auditor chart: https://repo1.dso.mil/platform-one/big-bang/apps/core/cluster-auditor.git",
+                            "type": "object"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "eckoperator": {
+                        "properties": {
+                          "enabled": {
+                            "default": true,
+                            "description": "Toggle deployment of ECK Operator.",
+                            "type": "boolean"
+                          },
+                          "flux": {
+                            "default": {},
+                            "description": "Flux reconciliation overrides specifically for the ECK Operator Package",
+                            "type": "object"
+                          },
+                          "git": {
+                            "properties": {
+                              "path": {
+                                "default": "./chart",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "repo": {
+                                "default": "https://repo1.dso.mil/platform-one/big-bang/apps/core/eck-operator.git",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "tag": {
+                                "default": "1.6.0-bb.0",
+                                "description": "",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "values": {
+                            "default": {},
+                            "description": "Values to passthrough to the eck-operator chart: https://repo1.dso.mil/platform-one/big-bang/apps/core/eck-operator.git",
+                            "type": "object"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "fluentbit": {
+                        "properties": {
+                          "enabled": {
+                            "default": true,
+                            "description": "Toggle deployment of Fluent-Bit.",
+                            "type": "boolean"
+                          },
+                          "flux": {
+                            "default": {},
+                            "description": "Flux reconciliation overrides specifically for the Fluent-Bit Package",
+                            "type": "object"
+                          },
+                          "git": {
+                            "properties": {
+                              "path": {
+                                "default": "./chart",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "repo": {
+                                "default": "https://repo1.dso.mil/platform-one/big-bang/apps/core/fluentbit.git",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "tag": {
+                                "default": "0.15.14-bb.0",
+                                "description": "",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "postRenderers": {
+                            "default": [],
+                            "description": "Post Renderers.  See docs/postrenders.md",
+                            "type": "array"
+                          },
+                          "values": {
+                            "default": {},
+                            "description": "Values to passthrough to the fluentbit chart: https://repo1.dso.mil/platform-one/big-bang/apps/core/fluentbit.git",
+                            "type": "object"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "flux": {
+                        "default": {
+                          "install": {
+                            "remediation": {
+                              "retries": 3
+                            }
+                          },
+                          "interval": "2m",
+                          "rollback": {
+                            "cleanupOnFail": true,
+                            "timeout": "10m"
+                          },
+                          "test": {
+                            "enable": false
+                          },
+                          "timeout": "10m",
+                          "upgrade": {
+                            "cleanupOnFail": true,
+                            "remediation": {
+                              "remediateLastFailure": true,
+                              "retries": 3
+                            }
+                          }
+                        },
+                        "description": "(Advanced) Flux reconciliation parameters. The default values provided will be sufficient for the majority of workloads.",
+                        "properties": {
+                          "default": {
+                            "install": {
+                              "remediation": {
+                                "retries": 3
+                              }
+                            },
+                            "interval": "2m",
+                            "rollback": {
+                              "cleanupOnFail": true,
+                              "timeout": "10m"
+                            },
+                            "test": {
+                              "enable": false
+                            },
+                            "timeout": "10m",
+                            "upgrade": {
+                              "cleanupOnFail": true,
+                              "remediation": {
+                                "remediateLastFailure": true,
+                                "retries": 3
+                              }
+                            }
+                          },
+                          "description": "(Advanced) Flux reconciliation parameters. The default values provided will be sufficient for the majority of workloads.",
+                          "install": {
+                            "properties": {
+                              "remediation": {
+                                "properties": {
+                                  "retries": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "interval": {
+                            "type": "string"
+                          },
+                          "rollback": {
+                            "properties": {
+                              "cleanupOnFail": {
+                                "type": "boolean"
+                              },
+                              "timeout": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "test": {
+                            "properties": {
+                              "enable": {
+                                "type": "boolean"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "timeout": {
+                            "type": "string"
+                          },
+                          "upgrade": {
+                            "properties": {
+                              "cleanupOnFail": {
+                                "type": "boolean"
+                              },
+                              "remediation": {
+                                "properties": {
+                                  "remediateLastFailure": {
+                                    "type": "boolean"
+                                  },
+                                  "retries": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "gatekeeper": {
+                        "properties": {
+                          "enabled": {
+                            "default": true,
+                            "description": "Toggle deployment of OPA Gatekeeper.",
+                            "type": "boolean"
+                          },
+                          "flux": {
+                            "default": {},
+                            "description": "Flux reconciliation overrides specifically for the OPA Gatekeeper Package",
+                            "type": "object"
+                          },
+                          "git": {
+                            "properties": {
+                              "path": {
+                                "default": "./chart",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "repo": {
+                                "default": "https://repo1.dso.mil/platform-one/big-bang/apps/core/policy.git",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "tag": {
+                                "default": "3.4.0-bb.4",
+                                "description": "",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "postRenderers": {
+                            "default": [],
+                            "description": "Post Renderers.  See docs/postrenders.md",
+                            "type": "array"
+                          },
+                          "values": {
+                            "default": {},
+                            "description": "Values to passthrough to the gatekeeper chart: https://repo1.dso.mil/platform-one/big-bang/apps/core/policy.git",
+                            "type": "object"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "git": {
+                        "default": {
+                          "credentials": {
+                            "knownHosts": "",
+                            "password": "",
+                            "privateKey": "",
+                            "publicKey": "",
+                            "username": ""
+                          },
+                          "existingSecret": ""
+                        },
+                        "description": "Git credential settings for accessing private repositories Order of precedence is:   1. existingSecret   2. http credentials (username/password)   3. ssh credentials (privateKey/publicKey/knownHosts)",
+                        "properties": {
+                          "credentials": {
+                            "default": {
+                              "knownHosts": "",
+                              "password": "",
+                              "privateKey": "",
+                              "publicKey": "",
+                              "username": ""
+                            },
+                            "description": "Chart created secrets with user defined values",
+                            "properties": {
+                              "default": {
+                                "knownHosts": "",
+                                "password": "",
+                                "privateKey": "",
+                                "publicKey": "",
+                                "username": ""
+                              },
+                              "description": "Chart created secrets with user defined values",
+                              "knownHosts": {
+                                "type": "string"
+                              },
+                              "password": {
+                                "type": "string"
+                              },
+                              "privateKey": {
+                                "default": "",
+                                "description": "SSH git credentials, privateKey, publicKey, and knownHosts must be provided",
+                                "type": "string"
+                              },
+                              "publicKey": {
+                                "type": "string"
+                              },
+                              "username": {
+                                "default": "",
+                                "description": "HTTP git credentials, both username and password must be provided",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "default": {
+                            "credentials": {
+                              "knownHosts": "",
+                              "password": "",
+                              "privateKey": "",
+                              "publicKey": "",
+                              "username": ""
+                            },
+                            "existingSecret": ""
+                          },
+                          "description": "Git credential settings for accessing private repositories Order of precedence is:   1. existingSecret   2. http credentials (username/password)   3. ssh credentials (privateKey/publicKey/knownHosts)",
+                          "existingSecret": {
+                            "default": "",
+                            "description": "Existing secret to use for git credentials, must be in the appropriate format: https://toolkit.fluxcd.io/components/source/gitrepositories/#https-authentication",
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "hostname": {
+                        "default": "bigbang.dev",
+                        "description": "Domain used for BigBang created exposed services, can be overridden by individual packages.",
+                        "type": "string"
+                      },
+                      "istio": {
+                        "properties": {
+                          "enabled": {
+                            "default": true,
+                            "description": "Toggle deployment of Istio.",
+                            "type": "boolean"
+                          },
+                          "flux": {
+                            "default": {},
+                            "description": "Flux reconciliation overrides specifically for the Istio Package",
+                            "type": "object"
+                          },
+                          "git": {
+                            "properties": {
+                              "path": {
+                                "default": "./chart",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "repo": {
+                                "default": "https://repo1.dso.mil/platform-one/big-bang/apps/core/istio-controlplane.git",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "tag": {
+                                "default": "1.8.4-bb.2",
+                                "description": "",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "ingress": {
+                            "default": {
+                              "cert": "",
+                              "key": ""
+                            },
+                            "description": "Certificate/Key pair to use as the default certificate for exposing BigBang created applications. If nothing is provided, applications will expect a valid tls secret to exist in the `istio-system` namespace called `wildcard-cert`.",
+                            "properties": {
+                              "cert": {
+                                "type": "string"
+                              },
+                              "default": {
+                                "cert": "",
+                                "key": ""
+                              },
+                              "description": "Certificate/Key pair to use as the default certificate for exposing BigBang created applications. If nothing is provided, applications will expect a valid tls secret to exist in the `istio-system` namespace called `wildcard-cert`.",
+                              "key": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "postRenderers": {
+                            "default": [],
+                            "description": "Post Renderers.  See docs/postrenders.md",
+                            "type": "array"
+                          },
+                          "values": {
+                            "default": {},
+                            "description": "Values to passthrough to the istio-controlplane chart: https://repo1.dso.mil/platform-one/big-bang/apps/core/istio-controlplane.git",
+                            "type": "object"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "istiooperator": {
+                        "properties": {
+                          "enabled": {
+                            "default": true,
+                            "description": "Toggle deployment of Istio Operator.",
+                            "type": "boolean"
+                          },
+                          "flux": {
+                            "default": {},
+                            "description": "Flux reconciliation overrides specifically for the Istio Operator Package",
+                            "type": "object"
+                          },
+                          "git": {
+                            "properties": {
+                              "path": {
+                                "default": "./chart",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "repo": {
+                                "default": "https://repo1.dso.mil/platform-one/big-bang/apps/core/istio-operator.git",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "tag": {
+                                "default": "1.8.4-bb.1",
+                                "description": "",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "postRenderers": {
+                            "default": [],
+                            "description": "Post Renderers.  See docs/postrenders.md",
+                            "type": "array"
+                          },
+                          "values": {
+                            "default": {},
+                            "description": "Values to passthrough to the istio-operator chart: https://repo1.dso.mil/platform-one/big-bang/apps/core/istio-operator.git",
+                            "type": "object"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "jaeger": {
+                        "properties": {
+                          "enabled": {
+                            "default": true,
+                            "description": "Toggle deployment of Jaeger.",
+                            "type": "boolean"
+                          },
+                          "flux": {
+                            "default": {},
+                            "description": "Flux reconciliation overrides specifically for the Jaeger Package",
+                            "type": "object"
+                          },
+                          "git": {
+                            "properties": {
+                              "path": {
+                                "default": "./chart",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "repo": {
+                                "default": "https://repo1.dso.mil/platform-one/big-bang/apps/core/jaeger.git",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "tag": {
+                                "default": "2.21.4-bb.2",
+                                "description": "",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "postRenderers": {
+                            "default": [],
+                            "description": "Post Renderers.  See docs/postrenders.md",
+                            "type": "array"
+                          },
+                          "sso": {
+                            "properties": {
+                              "client_id": {
+                                "default": "",
+                                "description": "OIDC Client ID to use for Jaeger",
+                                "type": "string"
+                              },
+                              "client_secret": {
+                                "default": "",
+                                "description": "OIDC Client Secret to use for Jaeger",
+                                "type": "string"
+                              },
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle SSO for Jaeger on and off",
+                                "type": "boolean"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "values": {
+                            "default": {},
+                            "description": "Values to pass through to Jaeger chart: https://repo1.dso.mil/platform-one/big-bang/apps/core/jaeger.git",
+                            "type": "object"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "kiali": {
+                        "properties": {
+                          "enabled": {
+                            "default": true,
+                            "description": "Toggle deployment of Kiali.",
+                            "type": "boolean"
+                          },
+                          "flux": {
+                            "default": {},
+                            "description": "Flux reconciliation overrides specifically for the Kiali Package",
+                            "type": "object"
+                          },
+                          "git": {
+                            "properties": {
+                              "path": {
+                                "default": "./chart",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "repo": {
+                                "default": "https://repo1.dso.mil/platform-one/big-bang/apps/core/kiali.git",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "tag": {
+                                "default": "1.32.0-bb.2",
+                                "description": "",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "postRenderers": {
+                            "default": [],
+                            "description": "Post Renderers.  See docs/postrenders.md",
+                            "type": "array"
+                          },
+                          "sso": {
+                            "properties": {
+                              "client_id": {
+                                "default": "",
+                                "description": "OIDC Client ID to use for Kiali",
+                                "type": "string"
+                              },
+                              "client_secret": {
+                                "default": "",
+                                "description": "OIDC Client Secret to use for Kiali",
+                                "type": "string"
+                              },
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle SSO for Kiali on and off",
+                                "type": "boolean"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "values": {
+                            "default": {},
+                            "description": "Values to pass through to Kiali chart: https://repo1.dso.mil/platform-one/big-bang/apps/core/kiali",
+                            "type": "object"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "logging": {
+                        "properties": {
+                          "enabled": {
+                            "default": true,
+                            "description": "Toggle deployment of Logging (EFK).",
+                            "type": "boolean"
+                          },
+                          "flux": {
+                            "default": {
+                              "timeout": "20m"
+                            },
+                            "description": "Flux reconciliation overrides specifically for the Logging (EFK) Package",
+                            "properties": {
+                              "default": {
+                                "timeout": "20m"
+                              },
+                              "description": "Flux reconciliation overrides specifically for the Logging (EFK) Package",
+                              "timeout": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "git": {
+                            "properties": {
+                              "path": {
+                                "default": "./chart",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "repo": {
+                                "default": "https://repo1.dso.mil/platform-one/big-bang/apps/core/elasticsearch-kibana.git",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "tag": {
+                                "default": "0.1.15-bb.0",
+                                "description": "",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "license": {
+                            "properties": {
+                              "keyJSON": {
+                                "default": "",
+                                "description": "Elasticsearch license in json format seen here: https://repo1.dso.mil/platform-one/big-bang/apps/core/elasticsearch-kibana#enterprise-license",
+                                "type": "string"
+                              },
+                              "trial": {
+                                "default": false,
+                                "description": "Toggle trial license installation of elasticsearch.  Note that enterprise (non trial) is required for SSO to work.",
+                                "type": "boolean"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "postRenderers": {
+                            "default": [],
+                            "description": "Post Renderers.  See docs/postrenders.md",
+                            "type": "array"
+                          },
+                          "sso": {
+                            "properties": {
+                              "client_id": {
+                                "default": "",
+                                "description": "Elasticsearch/Kibana OIDC client ID",
+                                "type": "string"
+                              },
+                              "client_secret": {
+                                "default": "",
+                                "description": "Elasticsearch/Kibana OIDC client secret",
+                                "type": "string"
+                              },
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle OIDC SSO for Kibana/Elasticsearch on and off. Enabling this option will auto-create any required secrets.",
+                                "type": "boolean"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "values": {
+                            "default": {},
+                            "description": "Values to passthrough to the elasticsearch-kibana chart: https://repo1.dso.mil/platform-one/big-bang/apps/core/elasticsearch-kibana.git",
+                            "type": "object"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "monitoring": {
+                        "properties": {
+                          "enabled": {
+                            "default": true,
+                            "description": "Toggle deployment of Monitoring (Prometheus, Grafana, and Alertmanager).",
+                            "type": "boolean"
+                          },
+                          "flux": {
+                            "default": {},
+                            "description": "Flux reconciliation overrides specifically for the Monitoring Package",
+                            "type": "object"
+                          },
+                          "git": {
+                            "properties": {
+                              "path": {
+                                "default": "./chart",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "repo": {
+                                "default": "https://repo1.dso.mil/platform-one/big-bang/apps/core/monitoring.git",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "tag": {
+                                "default": "11.0.0-bb.24",
+                                "description": "",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "postRenderers": {
+                            "default": [],
+                            "description": "Post Renderers.  See docs/postrenders.md",
+                            "type": "array"
+                          },
+                          "sso": {
+                            "properties": {
+                              "alertmanager": {
+                                "properties": {
+                                  "client_id": {
+                                    "default": "",
+                                    "description": "Alertmanager OIDC client ID",
+                                    "type": "string"
+                                  },
+                                  "client_secret": {
+                                    "default": "",
+                                    "description": "Alertmanager OIDC client secret",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "enabled": {
+                                "default": false,
+                                "description": "Toggle SSO for monitoring components on and off",
+                                "type": "boolean"
+                              },
+                              "grafana": {
+                                "properties": {
+                                  "allow_sign_up": {
+                                    "default": "true",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "client_id": {
+                                    "default": "",
+                                    "description": "Grafana OIDC client ID",
+                                    "type": "string"
+                                  },
+                                  "client_secret": {
+                                    "default": "",
+                                    "description": "Grafana OIDC client secret",
+                                    "type": "string"
+                                  },
+                                  "role_attribute_path": {
+                                    "default": "Viewer",
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "default": "",
+                                    "description": "Grafana OIDC client scopes, comma separated, see https://grafana.com/docs/grafana/latest/auth/generic-oauth/",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "prometheus": {
+                                "properties": {
+                                  "client_id": {
+                                    "default": "",
+                                    "description": "Prometheus OIDC client ID",
+                                    "type": "string"
+                                  },
+                                  "client_secret": {
+                                    "default": "",
+                                    "description": "Prometheus OIDC client secret",
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "values": {
+                            "default": {},
+                            "description": "Values to passthrough to the monitoring chart: https://repo1.dso.mil/platform-one/big-bang/apps/core/monitoring.git",
+                            "type": "object"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "networkPolicies": {
+                        "default": {
+                          "controlPlaneCidr": "0.0.0.0/0",
+                          "enabled": true
+                        },
+                        "description": "Global NetworkPolicies settings",
+                        "properties": {
+                          "controlPlaneCidr": {
+                            "default": "0.0.0.0/0",
+                            "description": "Control Plane CIDR, defaults to 0.0.0.0/0, use `kubectl cluster-info` to get the value for your cluster Must be an IP CIDR range (x.x.x.x/x - ideally with /32 for the specific IP) Used by package NetworkPolicies to allow Kube API access",
+                            "type": "string"
+                          },
+                          "default": {
+                            "controlPlaneCidr": "0.0.0.0/0",
+                            "enabled": true
+                          },
+                          "description": "Global NetworkPolicies settings",
+                          "enabled": {
+                            "default": true,
+                            "description": "Toggle all package NetworkPolicies, can disable specific packages with `package.networkPolicies.enabled`",
+                            "type": "boolean"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "offline": {
+                        "default": false,
+                        "description": "(experimental) Toggle sourcing from external repos. All this does right now is toggle GitRepositories, it is _not_ fully functional",
+                        "type": "boolean"
+                      },
+                      "openshift": {
+                        "default": false,
+                        "description": "Multiple sets of registry credentials used to pull all images deployed by BigBang. Credentials will only be created when a valid combination exists, registry, username, and password (email is optional) Or a list of registires:  - registry: registry1.dso.mil    username: \"\"    password: \"\"    email: \"\"  - registry: registry.dso.mil    username: \"\"    password: \"\"    email: \"\" Openshift Container Platform Feature Toggle",
+                        "type": "boolean"
+                      },
+                      "registryCredentials": {
+                        "default": {
+                          "email": "",
+                          "password": "",
+                          "registry": "registry1.dso.mil",
+                          "username": ""
+                        },
+                        "description": "Single set of registry credentials used to pull all images deployed by BigBang.",
+                        "properties": {
+                          "default": {
+                            "email": "",
+                            "password": "",
+                            "registry": "registry1.dso.mil",
+                            "username": ""
+                          },
+                          "description": "Single set of registry credentials used to pull all images deployed by BigBang.",
+                          "email": {
+                            "type": "string"
+                          },
+                          "password": {
+                            "type": "string"
+                          },
+                          "registry": {
+                            "type": "string"
+                          },
+                          "username": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "sso": {
+                        "default": {
+                          "auth_url": "https://{{ .Values.sso.oidc.host }}/auth/realms/{{ .Values.sso.oidc.realm }}/protocol/openid-connect/auth",
+                          "certificate_authority": "",
+                          "client_id": "",
+                          "client_secret": "",
+                          "jwks": "",
+                          "oidc": {
+                            "host": "login.dso.mil",
+                            "realm": "baby-yoda"
+                          },
+                          "token_url": "https://{{ .Values.sso.oidc.host }}/auth/realms/{{ .Values.sso.oidc.realm }}/protocol/openid-connect/token"
+                        },
+                        "description": "Global SSO values used for BigBang deployments when sso is enabled, can be overridden by individual packages.",
+                        "properties": {
+                          "auth_url": {
+                            "default": "https://{{ .Values.sso.oidc.host }}/auth/realms/{{ .Values.sso.oidc.realm }}/protocol/openid-connect/auth",
+                            "description": "OIDC auth URL template string (to be used as default)",
+                            "type": "string"
+                          },
+                          "certificate_authority": {
+                            "default": "",
+                            "description": "Keycloak's certificate authority (unencoded) used by authservice to support SSO for various packages",
+                            "type": "string"
+                          },
+                          "client_id": {
+                            "default": "",
+                            "description": "OIDC client ID used for packages authenticated through authservice",
+                            "type": "string"
+                          },
+                          "client_secret": {
+                            "default": "",
+                            "description": "OIDC client secret used for packages authenticated through authservice",
+                            "type": "string"
+                          },
+                          "default": {
+                            "auth_url": "https://{{ .Values.sso.oidc.host }}/auth/realms/{{ .Values.sso.oidc.realm }}/protocol/openid-connect/auth",
+                            "certificate_authority": "",
+                            "client_id": "",
+                            "client_secret": "",
+                            "jwks": "",
+                            "oidc": {
+                              "host": "login.dso.mil",
+                              "realm": "baby-yoda"
+                            },
+                            "token_url": "https://{{ .Values.sso.oidc.host }}/auth/realms/{{ .Values.sso.oidc.realm }}/protocol/openid-connect/token"
+                          },
+                          "description": "Global SSO values used for BigBang deployments when sso is enabled, can be overridden by individual packages.",
+                          "jwks": {
+                            "default": "",
+                            "description": "Keycloak realm's json web key uri, obtained through https://\u003ckeycloak-server\u003e/auth/realms/\u003crealm\u003e/.well-known/openid-configuration",
+                            "type": "string"
+                          },
+                          "oidc": {
+                            "properties": {
+                              "host": {
+                                "default": "login.dso.mil",
+                                "description": "Domain for keycloak used for configuring SSO",
+                                "type": "string"
+                              },
+                              "realm": {
+                                "default": "baby-yoda",
+                                "description": "Keycloak realm containing clients",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "token_url": {
+                            "default": "https://{{ .Values.sso.oidc.host }}/auth/realms/{{ .Values.sso.oidc.realm }}/protocol/openid-connect/token",
+                            "description": "OIDC token URL template string (to be used as default)",
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "twistlock": {
+                        "properties": {
+                          "enabled": {
+                            "default": true,
+                            "description": "Toggle deployment of Twistlock.",
+                            "type": "boolean"
+                          },
+                          "flux": {
+                            "default": {},
+                            "description": "Flux reconciliation overrides specifically for the Twistlock Package",
+                            "type": "object"
+                          },
+                          "git": {
+                            "properties": {
+                              "path": {
+                                "default": "./chart",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "repo": {
+                                "default": "https://repo1.dso.mil/platform-one/big-bang/apps/security-tools/twistlock.git",
+                                "description": "",
+                                "type": "string"
+                              },
+                              "tag": {
+                                "default": "0.0.6-bb.0",
+                                "description": "",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "postRenderers": {
+                            "default": [],
+                            "description": "Post Renderers.  See docs/postrenders.md",
+                            "type": "array"
+                          },
+                          "values": {
+                            "default": {},
+                            "description": "Values to passthrough to the twistlock chart: https://repo1.dso.mil/platform-one/big-bang/apps/security-tools/twistlock.git",
+                            "type": "object"
+                          }
+                        },
+                        "type": "object"
+                      }
+                    },
+                    "type": "object"
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+
+    typeInstances:
+      p1-config-repo:
+        typeRef:
+          path: cap.type.git.repository
+          revision: 0.1.0
+        verbs: [ "get" ]
+
+  output:
+    typeInstances:
+      big-bang-config:
+        typeRef:
+          path: cap.type.platform-one.big-bang.config
+          revision: 0.1.0
+      kubeconfig:
+        typeRef:
+          path: cap.type.containerization.kubernetes.kubeconfig
+          revision: 0.1.0
+      cluster:
+        typeRef:
+          path: cap.type.containerization.kubernetes.cluster
+          revision: 0.1.0
