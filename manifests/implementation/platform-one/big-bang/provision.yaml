@@ -209,7 +209,7 @@ spec:
                               <% if input.bigbangValues.istio.ingress %>
                               ingress:
                                 key: |
-                                  <@ bigbangValues.istio.ingress.key | indent(6) @>
+                                  <@ input.bigbangValues.istio.ingress.key | indent(6) @>
                                 cert: |
                                   <@ input.bigbangValues.istio.ingress.cert | indent(6) @>
                               <% endif %>

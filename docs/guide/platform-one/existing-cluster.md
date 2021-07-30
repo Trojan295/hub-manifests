@@ -4,7 +4,7 @@ This tutorial shows how to install Big Bang on a pre-existing cluster.
 
 # Prerequisites
 
-- [Capact Cluster](https://capact.io/docs/installation/) from the latest `main`. 
+- [Capact Cluster](https://capact.io/docs/installation/) from the latest `main`.
 - [Capact CLI](https://capact.io/docs/cli/getting-started/)
 - [jq](https://stedolan.github.io/jq/download/)
 
@@ -16,36 +16,36 @@ This tutorial shows how to install Big Bang on a pre-existing cluster.
    ```bash
    kubectl get deploy -n capact-system capact-engine -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name == "APP_BUILTIN_RUNNER_TIMEOUT")].value}'
    ```
-   
+
    If the output is empty, or returned value is lower that 1h, run:
    ```bash
    kubectl set env deploy/capact-engine -n capact-system -c engine APP_BUILTIN_RUNNER_TIMEOUT=3h
    ```
 
 1. Ensure that the [StructsureLabs/commercial-hub-manifests](https://github.com/StructsureLabs/commercial-hub-manifests) manifests are used:
-   
+
    To check current manifest path, run:
    ```bash
    kubectl get deploy -n capact-system capact-hub-public -o jsonpath='{.spec.template.spec.containers[?(@.name == "hub-public-populator")].env[?(@.name == "MANIFESTS_PATH")].value}'
    ```
-   
+
    If the manifest path is not set for [StructsureLabs/commercial-hub-manifests](https://github.com/StructsureLabs/commercial-hub-manifests), run:
    ```bash
    # Export read-only ssh key than can be used by populator to download manifest from private repository
    export COMMERCIAL_HUB_MANIFESTS_SSH_KEY=LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNDMUVQb3pBRktxeFMveDJXVWxWTGhNOEs3UWVvd0g0L2t5MzdZTUlMZXFUZ0FBQUppQVVjSmJnRkhDCld3QUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDQzFFUG96QUZLcXhTL3gyV1VsVkxoTThLN1Flb3dINC9reTM3WU1JTGVxVGcKQUFBRUN5bllWQTl5YjVCWHdtYVRTOUtZalpxSzZGZDJHL1ZBcTdGdVJaLy9oVkI3VVErak1BVXFyRkwvSFpaU1ZVdUV6dwpydEI2akFmaitUTGZ0Z3dndDZwT0FBQUFFV052Ym5SaFkzUkFZMkZ3WVdOMExtbHZBUUlEQkE9PQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K
-   kubectl set env deploy/capact-engine -n capact-system -c engine APP_BUILTIN_RUNNER_TIMEOUT=git@github.com:StructsureLabs/commercial-hub-manifests.git?ref=main&sshkey=${COMMERCIAL_HUB_MANIFESTS_SSH_KEY}
+   kubectl set env deploy/capact-hub-public -n capact-system -c hub-public-populator MANIFESTS_PATH="git@github.com:StructsureLabs/commercial-hub-manifests.git?ref=main&sshkey=${COMMERCIAL_HUB_MANIFESTS_SSH_KEY}"
    ```
-   
+
 1. Define TypeInstances which describe your cluster and hold kubeconfig:
 
-   >**NOTE:** You can skip this step if you have already a kubeconfig TypeInstance in you cluster that you want to use.  
-   >  
-   
+   >**NOTE:** You can skip this step if you have already a kubeconfig TypeInstance in you cluster that you want to use.
+   >
+
    ```bash
-   export SERVER_URL={url} # e.g https://152.70.166.40:6443 
-   export NAME={name} # e.g stage 
-   export K8S_TYPE={type} # e.g rke2, k3d, etc. 
-   export K8S_VERSION={version} # e.g v1.20.5 
+   export SERVER_URL={url} # e.g https://152.70.166.40:6443
+   export NAME={name} # e.g stage
+   export K8S_TYPE={type} # e.g rke2, k3d, etc.
+   export K8S_VERSION={version} # e.g v1.20.5
    export KUBECONFIG_PATH={path} # e.g. ~/.kube/config
    cat > /tmp/cluster.yaml << ENDOFFILE
    typeInstances:
@@ -83,7 +83,7 @@ This tutorial shows how to install Big Bang on a pre-existing cluster.
 1. Create a new git repository for the Big Bang configuration.
 
    You can use any git hosting e.g. GitHub, GitLab, or your own git server. For GitHub, you can create a repository using [`gh`](https://cli.github.com/manual/installation):
-   
+
    ```bash
    gh repo create --private big-bang-configuration
    ```
@@ -147,14 +147,14 @@ This tutorial shows how to install Big Bang on a pre-existing cluster.
    ```
 
 1. Wait till the Action is in `READY_TO_RUN` status:
-   
+
     ```bash
     watch -n 1 capact action get big-bang
     ```
     ```bash
-       NAMESPACE            NAME                              PATH                         RUN       STATUS      AGE  
+       NAMESPACE            NAME                              PATH                         RUN       STATUS      AGE
     +--------------+--------------------+-----------------------------------------------+-------+--------------+-----+
-       default        big-bang            cap.interface.platform-one.big-bang.provision   false   READY_TO_RUN   19s  
+       default        big-bang            cap.interface.platform-one.big-bang.provision   false   READY_TO_RUN   19s
     +--------------+--------------------+-----------------------------------------------+-------+--------------+-----+
     ```
 
@@ -165,11 +165,11 @@ This tutorial shows how to install Big Bang on a pre-existing cluster.
     After the Action is in `READY_TO_RUN` status, you can run it:
 
     ```bash
-    capact action run big-bang         
+    capact action run big-bang
     ```
 
 1. Check the Action execution and wait till it is finished:
-    
+
     ```bash
-    capact action watch big-bang         
+    capact action watch big-bang
     ```
