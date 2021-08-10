@@ -202,22 +202,25 @@ spec:
                       - name: manifest
                         from: "{{steps.create-license-args.outputs.artifacts.render}}"
 
-              - - name: fill-default-input
-                  capact-action: jinja2.template
+              - - name: prepare-parameters
+                  template: prepare-parameters
                   arguments:
                     artifacts:
                       - name: input-parameters
                         from: "{{inputs.artifacts.input-parameters}}"
-                      - name: template
-                        raw:
-                          data: |
-                            host: <@ input.host @>
-                      - name: configuration
-                        raw:
-                          data: |
-                            prefix: input
+                      - name: additional-parameters
+                        from: "{{inputs.artifacts.additional-parameters}}"
+                        optional: true
+                      - name: db
+                        from: "{{steps.install-db.outputs.artifacts.postgresql}}"
+                      - name: database
+                        from: "{{steps.create-db.outputs.artifacts.database}}"
+                      - name: optionalLicense
+                        from: "{{steps.create-license-secret.outputs.artifacts.manifest}}"
+                      - name: secret
+                        from: "{{steps.create-basic-auth-secret.outputs.artifacts.manifest}}"
 
-              - - name: fill-input-params-in-helm-args
+              - - name: render-helm-args
                   capact-action: jinja2.template
                   arguments:
                     artifacts:
@@ -346,72 +349,10 @@ spec:
                               additionalFiles: <@ additionalInput.additionalFiles | default([]) @>
 
                       - name: input-parameters
-                        from: "{{inputs.artifacts.additional-parameters}}"
+                        from: "{{steps.prepare-parameters.outputs.artifacts.merged}}"
                       - name: configuration
                         raw:
-                          data: |
-                            prefix: input
-
-              - - name: fill-input-in-module-args
-                  capact-action: jinja2.template
-                  arguments:
-                    artifacts:
-                      - name: template
-                        from: "{{steps.fill-input-params-in-helm-args.outputs.artifacts.render}}"
-                      - name: input-parameters
-                        from: "{{steps.fill-default-input.outputs.artifacts.render}}"
-                      - name: configuration
-                        raw:
-                          data: |
-                            prefix: input
-
-              - - name: fill-database-params-in-helm-args
-                  capact-action: jinja2.template
-                  arguments:
-                    artifacts:
-                      - name: template
-                        from: "{{steps.fill-input-in-module-args.outputs.artifacts.render}}"
-                      - name: input-parameters
-                        from: "{{steps.create-db.outputs.artifacts.database}}"
-                      - name: configuration
-                        raw:
-                          data: "prefix: database"
-
-              - - name: fill-db-params-in-helm-args
-                  capact-action: jinja2.template
-                  arguments:
-                    artifacts:
-                      - name: template
-                        from: "{{steps.fill-database-params-in-helm-args.outputs.artifacts.render}}"
-                      - name: input-parameters
-                        from: "{{steps.install-db.outputs.artifacts.postgresql}}"
-                      - name: configuration
-                        raw:
-                          data: "prefix: db"
-
-              - - name: fill-secret-name-in-helm-args
-                  capact-action: jinja2.template
-                  arguments:
-                    artifacts:
-                      - name: template
-                        from: "{{steps.fill-db-params-in-helm-args.outputs.artifacts.render}}"
-                      - name: input-parameters
-                        from: "{{steps.create-basic-auth-secret.outputs.artifacts.manifest}}"
-                      - name: configuration
-                        raw:
-                          data: "prefix: secret"
-
-              - - name: fill-license-params-in-helm-args
-                  capact-action: jinja2.template
-                  arguments:
-                    artifacts:
-                      - name: template
-                        from: "{{steps.fill-secret-name-in-helm-args.outputs.artifacts.render}}"
-                      - name: input-parameters
-                        from: "{{steps.create-license-secret.outputs.artifacts.manifest}}"
-                      - name: configuration
-                        raw:
-                          data: "prefix: optionalLicense"
+                          data:
 
               - - name: helm-install
                   capact-action: helm.install
@@ -423,7 +364,7 @@ spec:
                   arguments:
                     artifacts:
                       - name: input-parameters
-                        from: "{{steps.fill-license-params-in-helm-args.outputs.artifacts.render}}"
+                        from: "{{steps.render-helm-args.outputs.artifacts.render}}"
                       - name: runner-context
                         from: "{{workflow.outputs.artifacts.runner-context}}"
 
@@ -455,3 +396,26 @@ spec:
                 fi
                 # Known bug with PNS executor, which doesn't work when pod exists too early.
                 sleep 1
+
+          - name: prepare-parameters
+            inputs:
+              artifacts:
+                - name: input-parameters
+                  path: /yamls/input.yaml
+                - name: additional-parameters
+                  path: /yamls/additionalInput.yaml
+                  optional: true
+                - name: database
+                  path: /yamls/database.yaml
+                - name: db
+                  path: /yamls/db.yaml
+                - name: optionalLicense
+                  path: /yamls/optionalLicense.yaml
+                - name: secret
+                  path: /yamls/secret.yaml
+            container:
+              image: ghcr.io/capactio/pr/infra/merger:PR-428
+            outputs:
+              artifacts:
+              - name: merged
+                path: /merged.yaml
