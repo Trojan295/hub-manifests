@@ -38,7 +38,7 @@ spec:
             "$id": "#/properties/publicKey",
             "type": "string",
             "title": "Base64 encoded SSH public key in PEM format"
-          },
+          }
         },
         "additionalProperties": false
       }

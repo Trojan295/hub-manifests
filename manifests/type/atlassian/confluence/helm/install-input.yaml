@@ -279,15 +279,11 @@ spec:
                 },
                 "description": "Enable or disable security context in StatefulSet template spec. Enabled by default with UID 2002. -- Disable when deploying to OpenShift, unless anyuid policy is attached to a service account",
                 "properties": {
-                  "default": {
-                    "enabled": true,
-                    "gid": "2002"
-                  },
-                  "description": "Enable or disable security context in StatefulSet template spec. Enabled by default with UID 2002. -- Disable when deploying to OpenShift, unless anyuid policy is attached to a service account",
                   "enabled": {
                     "$id": "#/properties/confluence/properties/securityContext/properties/enabled",
-                    "default": false,
+                    "default": true,
                     "title": "The enabled schema",
+                    "description": "Enable or disable security context in StatefulSet template spec. Enabled by default with UID 2002. -- Disable when deploying to OpenShift, unless anyuid policy is attached to a service account",
                     "type": "boolean"
                   },
                   "gid": {
@@ -681,19 +677,14 @@ spec:
                         },
                         "description": "Specifies the standard Kubernetes resource requests and/or limits for the local-home volume claims.",
                         "properties": {
-                          "default": {
-                            "requests": {
-                              "storage": "1Gi"
-                            }
-                          },
-                          "description": "Specifies the standard Kubernetes resource requests and/or limits for the local-home volume claims.",
                           "requests": {
                             "$id": "#/properties/volumes/properties/localHome/properties/persistentVolumeClaim/properties/resources/properties/requests",
+                            "description": "Specifies the standard Kubernetes resource requests and/or limits for the local-home volume claims.",
                             "default": {},
                             "properties": {
                               "storage": {
                                 "$id": "#/properties/volumes/properties/localHome/properties/persistentVolumeClaim/properties/resources/properties/requests/properties/storage",
-                                "default": "",
+                                "default": "1Gi",
                                 "title": "The storage schema",
                                 "type": "string"
                               }
@@ -787,19 +778,14 @@ spec:
                         },
                         "description": "Specifies the standard Kubernetes resource requests and/or limits for the shared-home volume claims.",
                         "properties": {
-                          "default": {
-                            "requests": {
-                              "storage": "1Gi"
-                            }
-                          },
-                          "description": "Specifies the standard Kubernetes resource requests and/or limits for the shared-home volume claims.",
                           "requests": {
                             "$id": "#/properties/volumes/properties/sharedHome/properties/persistentVolumeClaim/properties/resources/properties/requests",
+                            "description": "Specifies the standard Kubernetes resource requests and/or limits for the shared-home volume claims.",
                             "default": {},
                             "properties": {
                               "storage": {
                                 "$id": "#/properties/volumes/properties/sharedHome/properties/persistentVolumeClaim/properties/resources/properties/requests/properties/storage",
-                                "default": "",
+                                "default": "1Gi",
                                 "title": "The storage schema",
                                 "type": "string"
                               }
@@ -837,7 +823,5 @@ spec:
             "title": "The volumes schema",
             "type": "object"
           }
-        },
-        "title": "The root schema",
-        "type": "object"
+        }
       }

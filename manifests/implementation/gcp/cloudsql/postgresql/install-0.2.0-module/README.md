@@ -4,8 +4,8 @@ This directory contains source Terraform module which is used in the `cap.implem
 
 ### Update Terraform content
 
-1. Prepare `tgz` directory with the
-
+1. Prepare `tgz` directory with the 
+    
    ```bash
     cd ./install-0.2.0-module && tar -zcvf /tmp/module.tgz . && cd -
     ```
@@ -16,9 +16,9 @@ This directory contains source Terraform module which is used in the `cap.implem
    export MANIFEST_PATH="terraform.gcp.cloudsql.postgresql.install"
    export MANIFEST_REVISION="0.2.0"
    ```
-
+   
 1. Upload `tgz` directory to GCS bucket:
-
+    
    ```bash
    gsutil cp /tmp/module.tgz gs://${BUCKET}/${MANIFEST_PATH}/${MANIFEST_REVISION}/module.tgz
    ```

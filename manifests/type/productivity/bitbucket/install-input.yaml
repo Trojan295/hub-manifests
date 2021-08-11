@@ -21,7 +21,7 @@ spec:
         "additionalProperties": true,
         "properties": {
           "host": {
-            "$id": "#/properties/host"
+            "$id": "#/properties/host",
             "type": "string",
             "title": "Host for BitBucket"
           },

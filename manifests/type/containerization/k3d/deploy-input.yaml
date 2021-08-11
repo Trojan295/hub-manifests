@@ -28,7 +28,7 @@ spec:
             "additionalItems": true,
             "items": {
               "$id": "#/properties/volumes/items"
-            },
+            }
           },
           "ports": {
             "$id": "#/properties/ports",
@@ -38,7 +38,7 @@ spec:
             "additionalItems": true,
             "items": {
               "$id": "#/properties/ports/items"
-            },
+            }
           },
           "labels": {
             "$id": "#/properties/labels",
@@ -48,7 +48,7 @@ spec:
             "additionalItems": true,
             "items": {
               "$id": "#/properties/labels/items"
-            },
+            }
           },
           "env": {
             "$id": "#/properties/env",
@@ -58,7 +58,7 @@ spec:
             "additionalItems": true,
             "items": {
               "$id": "#/properties/env/items"
-            },
+            }
           },
           "registriesConfig": {
             "$id": "#/properties/registriesConfig",
@@ -82,7 +82,7 @@ spec:
             "additionalItems": true,
             "items": {
               "$id": "#/properties/k3sExtraServerArgs/items"
-            },
+            }
           },
           "k3sExtraAgentArgs": {
             "$id": "#/properties/k3sExtraAgentArgs",
@@ -92,7 +92,7 @@ spec:
             "additionalItems": true,
             "items": {
               "$id": "#/properties/k3sExtraAgentArgs/items"
-            },
+            }
           },
           "runtime": {
             "$id": "#/properties/runtime",

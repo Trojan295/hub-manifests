@@ -208,7 +208,7 @@ spec:
             "$id": "#/properties/resources",
             "type": "object",
             "title": "The resources configuration",
-            "description": "Reference: https://kubernetes.io/docs/user-guide/compute-resources/"
+            "description": "Reference: https://kubernetes.io/docs/user-guide/compute-resources/",
             "properties": {
               "requests": {
                 "$id": "#/properties/resources/properties/requests",
