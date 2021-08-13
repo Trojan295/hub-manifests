@@ -29,7 +29,8 @@ This tutorial shows how to create a Platform One environment with Big Bang insta
 
    ```bash
    sudo sysctl -w vm.max_map_count=262144
-   # Turn off all swap devices and files (won't last reboot)
+   sudo sysctl -w net.netfilter.nf_conntrack_max=524288
+   # Turn off all swap devices and files (will not last reboot)
    sudo swapoff -a
    # For swap to stay off you can remove any references found via
    # cat /proc/swaps
@@ -53,10 +54,10 @@ This tutorial shows how to create a Platform One environment with Big Bang insta
                node-labels: "ingress-ready=true"
        extraPortMappings:
          - containerPort: 80
-           hostPort: 80
+           hostPort: 8080
            protocol: TCP
          - containerPort: 443
-           hostPort: 443
+           hostPort: 8443
            protocol: TCP
        extraMounts:
          - containerPath: /var/run/docker.sock
@@ -76,6 +77,11 @@ This tutorial shows how to create a Platform One environment with Big Bang insta
    ```
 
 2. Login to Capact by following [this instruction](https://capact.io/docs/cli/getting-started#first-use).
+
+> **NOTE:** When deploying on k3d you have to use a different command to get the gateway host:
+> ```bash
+> export CAPACT_GATEWAY_HOST="$(kubectl -n capact-system get ingress capact-gateway -ojsonpath='{.spec.rules[0].host}'):8443"
+> ```
 
 3. **Only when deploying on RKE2:** Create the AWS credentials TypeInstance:
 
@@ -158,10 +164,10 @@ This tutorial shows how to create a Platform One environment with Big Bang insta
                  k3sExtraServerArgs:
                    - --disable=traefik
                  ports:
-                   - port: 8080:80
+                   - port: 80:80
                      nodeFilters:
                      - loadbalancer
-                   - port: 8443:443
+                   - port: 443:443
                      nodeFilters:
                      - loadbalancer
                  registriesConfig:
@@ -222,6 +228,7 @@ This tutorial shows how to create a Platform One environment with Big Bang insta
 
    ```bash
    export REPO_TI_ID="<git-repo-typeinstance-it>"
+   ```
 
 1. Set your domain configuration variables:
 
@@ -252,7 +259,7 @@ This tutorial shows how to create a Platform One environment with Big Bang insta
 
    </details>
 
-1. Create the Platform One Action, which will deploy a RKE2 environment on AWS and install Big Bang on it:
+1. Create the Platform One Action, which will deploy a Platform One environment on AWS and install Big Bang on it:
 
    ```bash
    cat <<EOF > /tmp/p1-tis.yaml
@@ -419,3 +426,30 @@ This tutorial shows how to create a Platform One environment with Big Bang insta
    ```
 
    </details>
+
+1. Test that it works:
+
+   Get the connection details to Grafana using the following command:
+
+   ```bash
+   capact action get bigbang -ojson | jq -r '.Actions[0].output.typeInstances[] | select( .typeRef.path == "cap.type.platform-one.big-bang.config" ) | .id' | xargs capact typeinstance get -ojson | jq -r '.[0].latestResourceVersion.spec.value'
+   ```
+
+   You should see a response like this, with the Grafana host, username and password:
+   ```json
+   {
+     "grafana": {
+       "host": "https://grafana.bigbang.dev",
+       "password": "...",
+       "username": "..."
+     },
+     "istioGateway": {
+       "hostname": "",
+       "ip": "172.24.0.2"
+     }
+   }
+   ```
+
+   Open Grafana in your browser and confirm it works.
+
+   > **NOTE:** You might get a certificate issue in your browser, if you used a self-signed certificate for the BigBang ingress. In this case you have to add the certificate to your truststore.

@@ -173,3 +173,30 @@ This tutorial shows how to install Big Bang on a pre-existing cluster.
     ```bash
     capact action watch big-bang
     ```
+
+1. Test that it works:
+
+   Get the connection details to Grafana using the following command:
+
+   ```bash
+   capact action get big-bang -ojson | jq -r '.Actions[0].output.typeInstances[] | select( .typeRef.path == "cap.type.platform-one.big-bang.config" ) | .id' | xargs capact typeinstance get -ojson | jq -r '.[0].latestResourceVersion.spec.value'
+   ```
+
+   You should see a response like this, with the Grafana host, username and password:
+   ```json
+   {
+     "grafana": {
+       "host": "https://grafana.bigbang.dev",
+       "password": "...",
+       "username": "..."
+     },
+     "istioGateway": {
+       "hostname": "",
+       "ip": "172.24.0.2"
+     }
+   }
+   ```
+
+   Open Grafana in your browser and confirm it works.
+
+   > **NOTE:** You might get a certificate issue in your browser, if you used a self-signed certificate for the BigBang ingress. In this case you have to add the certificate to your truststore.
