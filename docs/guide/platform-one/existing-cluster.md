@@ -186,7 +186,7 @@ This tutorial shows how to install Big Bang on a pre-existing cluster.
    ```json
    {
      "grafana": {
-       "host": "https://grafana.bigbang.dev",
+       "host": "https://grafana.bigbang.local",
        "password": "...",
        "username": "..."
      },

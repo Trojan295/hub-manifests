@@ -247,12 +247,13 @@ This tutorial shows how to create a Platform One environment with Big Bang insta
      <summary>Using bigbang.dev domain with self-signed certificate</summary>
 
    ```bash
+   export DOMAIN_NAME="bigbang.local"
+
    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
      -keyout /tmp/bigbang.local.key -out /tmp/bigbang.local.crt \
-     -subj "/CN=*.bigbang.dev/O=Capact" -reqexts SAN \
-     -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "\n[ req ]\nx509_extensions = v3_ca\n[SAN]\nsubjectAltName=DNS:bigbang.dev ,DNS:*.bigbang.dev"))
+     -subj "/CN=${DOMAIN_NAME}/O=Capact" -reqexts SAN \
+     -extensions SAN -config <(cat /etc/ssl/openssl.cnf <(printf "\n[ req ]\nx509_extensions = v3_ca\n[SAN]\nsubjectAltName=DNS:${DOMAIN_NAME} ,DNS:*.${DOMAIN_NAME}"))
 
-   export DOMAIN_NAME="bigbang.dev"
    export DOMAIN_WILDCARD_PRIVATE_KEY="$(cat /tmp/bigbang.local.key)"
    export DOMAIN_WILDCARD_CERTIFICATE="$(cat /tmp/bigbang.local.crt)"
    ```
@@ -401,7 +402,7 @@ This tutorial shows how to create a Platform One environment with Big Bang insta
 
    Put the following entry into your `/etc/hosts`:
    ```
-   {load-balancer-ip-address}  tracing.bigbang.dev kiali.bigbang.dev kibana.bigbang.dev alertmanager.bigbang.dev grafana.bigbang.dev prometheus.bigbang.dev twistlock.bigbang.dev
+   {load-balancer-ip-address}  tracing.bigbang.local kiali.bigbang.local kibana.bigbang.local alertmanager.bigbang.local grafana.bigbang.local prometheus.bigbang.local twistlock.bigbang.local
    ```
 
    </details>
@@ -411,7 +412,7 @@ This tutorial shows how to create a Platform One environment with Big Bang insta
 
    Put the following entry into your `/etc/hosts`:
    ```
-   127.0.0.1  tracing.bigbang.dev kiali.bigbang.dev kibana.bigbang.dev alertmanager.bigbang.dev grafana.bigbang.dev prometheus.bigbang.dev twistlock.bigbang.dev
+   127.0.0.1  tracing.bigbang.local kiali.bigbang.local kibana.bigbang.local alertmanager.bigbang.local grafana.bigbang.local prometheus.bigbang.local twistlock.bigbang.local
    ```
 
    </details>
@@ -422,7 +423,7 @@ This tutorial shows how to create a Platform One environment with Big Bang insta
 
    Put the following entry into your `/etc/hosts`:
    ```
-   {public-ip-address-of-instance}  tracing.bigbang.dev kiali.bigbang.dev kibana.bigbang.dev alertmanager.bigbang.dev grafana.bigbang.dev prometheus.bigbang.dev twistlock.bigbang.dev
+   {public-ip-address-of-instance}  tracing.bigbang.local kiali.bigbang.local kibana.bigbang.local alertmanager.bigbang.local grafana.bigbang.local prometheus.bigbang.local twistlock.bigbang.local
    ```
 
    </details>
@@ -439,7 +440,7 @@ This tutorial shows how to create a Platform One environment with Big Bang insta
    ```json
    {
      "grafana": {
-       "host": "https://grafana.bigbang.dev",
+       "host": "https://grafana.bigbang.local",
        "password": "...",
        "username": "..."
      },
